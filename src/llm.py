@@ -99,9 +99,6 @@ class QwenClient:
                     return []
             else:
                 return []
-        except Exception:
-                
-                try:
-                    return json.loads(content)
-                except json.JSONDecodeError:
-                    return []
+        except Exception as e:
+            print(f"❌ LLM 分析失败: {e}")
+            return []
