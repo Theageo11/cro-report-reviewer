@@ -19,13 +19,14 @@ class DocxParser:
     def get_content_and_html(self, file_path: str) -> Dict[str, Any]:
         """
         Parse DOCX and return both structured content and tagged HTML.
-        Uses a marker injection strategy for 100% reliable localization.
+        Uses a robust sibling-tagging strategy to avoid breaking Word fields.
         """
-        # 1. Extract content for LLM using the original document
+        from bs4 import BeautifulSoup
+        
+        # 1. Extract clean content for LLM using a fresh doc object
         doc = docx.Document(file_path)
         content_list = []
         element_id = 0
-        
         for element in doc.element.body:
             if isinstance(element, CT_P):
                 paragraph = Paragraph(element, doc)
@@ -33,7 +34,6 @@ class DocxParser:
                 for img_path in images:
                     content_list.append({"id": element_id, "type": "image", "path": img_path})
                     element_id += 1
-                
                 text = paragraph.text.strip()
                 if text:
                     content_list.append({"id": element_id, "type": "text", "content": text})
@@ -44,53 +44,50 @@ class DocxParser:
                 content_list.append({"id": element_id, "type": "table", "content": table_data})
                 element_id += 1
 
-        # 2. Create a marked copy for HTML conversion
-        # We insert markers like [[REF_n]] into the text
+        # 2. Create a marked version for HTML conversion
+        # We insert marker paragraphs BEFORE each target element
         marked_doc = docx.Document(file_path)
-        m_element_id = 0
-        for element in marked_doc.element.body:
+        element_id = 0
+        body_elements = list(marked_doc.element.body)
+        for element in body_elements:
+            target_id = None
             if isinstance(element, CT_P):
                 paragraph = Paragraph(element, marked_doc)
                 images = self._extract_images_from_paragraph(paragraph, marked_doc)
-                m_element_id += len(images)
-                
+                element_id += len(images)
                 if paragraph.text.strip():
-                    # Prepend marker to the first run
-                    if paragraph.runs:
-                        paragraph.runs[0].text = f"[[REF_{m_element_id}]]" + paragraph.runs[0].text
-                    else:
-                        paragraph.add_run(f"[[REF_{m_element_id}]]")
-                    m_element_id += 1
+                    target_id = element_id
+                    element_id += 1
             elif isinstance(element, CT_Tbl):
-                table = Table(element, marked_doc)
-                # Insert marker in the first cell
-                if table.rows and table.rows[0].cells:
-                    cell = table.rows[0].cells[0]
-                    if cell.paragraphs:
-                        p = cell.paragraphs[0]
-                        if p.runs:
-                            p.runs[0].text = f"[[REF_{m_element_id}]]" + p.runs[0].text
-                        else:
-                            p.add_run(f"[[REF_{m_element_id}]]")
-                m_element_id += 1
+                target_id = element_id
+                element_id += 1
+            
+            if target_id is not None:
+                # Insert a marker paragraph before this element
+                new_p = marked_doc.add_paragraph(f"MARKER_ID_{target_id}")
+                element.addprevious(new_p._p)
 
-        # 3. Convert marked doc to HTML
+        # 3. Convert to HTML
         doc_buffer = io.BytesIO()
         marked_doc.save(doc_buffer)
         doc_buffer.seek(0)
         html_res = mammoth.convert_to_html(doc_buffer)
-        html_val = html_res.value
+        soup = BeautifulSoup(html_res.value, 'html.parser')
 
-        # 4. Replace markers with tagged spans for UI localization
-        tagged_html = re.sub(
-            r'\[\[REF_(\d+)\]\]', 
-            r'<span id="doc-el-\1" class="doc-anchor"></span>', 
-            html_val
-        )
+        # 4. Post-process HTML: find markers and tag siblings
+        for marker_p in soup.find_all('p', string=re.compile(r'MARKER_ID_\d+')):
+            m = re.search(r'MARKER_ID_(\d+)', marker_p.get_text())
+            if m:
+                eid = m.group(1)
+                # The actual element is the next sibling
+                sibling = marker_p.find_next_sibling()
+                if sibling:
+                    sibling['id'] = f"doc-el-{eid}"
+                marker_p.decompose() # Remove the marker
 
         return {
             "content": content_list,
-            "html": tagged_html
+            "html": str(soup)
         }
 
     def _extract_images_from_paragraph(self, paragraph: Paragraph, doc: Document) -> List[str]:

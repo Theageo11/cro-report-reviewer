@@ -161,7 +161,8 @@ def main():
                         
                         col_check, col_content = st.columns([1, 9])
                         with col_check:
-                            is_selected = st.checkbox("", value=(i in st.session_state.selected_indices), key=f"check-{i}")
+                            # Provide a label and hide it to satisfy accessibility requirements
+                            is_selected = st.checkbox(f"选择问题 {i+1}", value=(i in st.session_state.selected_indices), key=f"check-{i}", label_visibility="collapsed")
                             if is_selected: new_selected.append(i)
                         
                         with col_content:

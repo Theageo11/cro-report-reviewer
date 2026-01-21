@@ -9,25 +9,27 @@ def get_or_create_comments_part(doc):
     Ensure the document has a comments part in a safe way.
     """
     main_doc_part = doc.part
-    try:
-        comments_part = main_doc_part.part_related_by(qn('r:comments'))
-        return comments_part, parse_xml(comments_part.blob)
-    except KeyError:
-        from docx.opc.constants import CONTENT_TYPE as CT
-        from docx.opc.packuri import PackURI
-        from docx.opc.part import Part
-        
-        comments_xml_str = '<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:comments>'
-        comments_part = Part(
-            PackURI('/word/comments.xml'),
-            CT.WML_COMMENTS,
-            comments_xml_str.encode('utf-8'),
-            main_doc_part.package
-        )
-        # Use the correct relationship type string
-        rel_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments"
-        main_doc_part.relate_to(comments_part, rel_type)
-        return comments_part, parse_xml(comments_xml_str)
+    
+    # Check if the part already exists in the package to avoid duplicates
+    for part in main_doc_part.package.parts:
+        if part.partname == '/word/comments.xml':
+            return part, parse_xml(part.blob)
+
+    # If not found, create it
+    from docx.opc.constants import CONTENT_TYPE as CT
+    from docx.opc.packuri import PackURI
+    from docx.opc.part import Part
+    
+    comments_xml_str = '<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:comments>'
+    comments_part = Part(
+        PackURI('/word/comments.xml'),
+        CT.WML_COMMENTS,
+        comments_xml_str.encode('utf-8'),
+        main_doc_part.package
+    )
+    rel_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments"
+    main_doc_part.relate_to(comments_part, rel_type)
+    return comments_part, parse_xml(comments_xml_str)
 
 def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
     """
