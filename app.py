@@ -27,8 +27,6 @@ def get_doc_data(file_path):
 
 @st.cache_data
 def get_analysis(content_items):
-    print('开始分析文档...')
-    print(content_items)
     llm_client = QwenClient()
     return llm_client.analyze_report(content_items)
 
@@ -130,10 +128,12 @@ def render_empty_state():
             <div class="feature-item">
                 <div class="feature-icon">✓</div>
                 <div class="feature-label">计算准确性验证</div>
+                <div class="feature-label">(In progress)</div>
             </div>
-            <div class="feature-item">
+            <div class="feature-item">  
                 <div class="feature-icon">✓</div>
                 <div class="feature-label">表述规范性审核</div>
+                <div class="feature-label">(In progress)</div>
             </div>
         </div>
     </div>
@@ -217,18 +217,18 @@ def main():
         """, unsafe_allow_html=True)
     
     with header_col2:
-        # st.markdown("""
-        # <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); border-radius: 16px; 
-        #             padding: 2.5rem; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16); border: 1px solid rgba(255, 255, 255, 0.2); 
-        #             height: 100%; display: flex; align-items: center;">
-        # """, unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); border-radius: 16px; color:#6B7280; margin-bottom: 1rem;
+                    text-align: center; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16); border: 1px solid rgba(255, 255, 255, 0.2);">
+            <h4>上传报告文档</h4>
+        </div>
+        """, unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "上传报告文档",
             type=["docx"],
             help="支持 DOCX 格式，最大 200MB",
-            label_visibility="visible"
+            label_visibility="collapsed"
         )
-        # st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div style="margin-bottom: 2rem;"></div>', unsafe_allow_html=True)
 
@@ -258,6 +258,8 @@ def main():
             st.session_state.last_uploaded = uploaded_file.name
         if 'analyzing' not in st.session_state:
             st.session_state.analyzing = False
+        if 'analysis_id' not in st.session_state:
+            st.session_state.analysis_id = 0
 
         # 显示统计信息
         if st.session_state.issues is not None and len(st.session_state.issues) > 0:
@@ -285,12 +287,17 @@ def main():
         with col2:
             if st.button("开始智能分析", type="primary", use_container_width=True):
                 st.session_state.analyzing = True
+                st.session_state.analysis_id += 1  # 增加分析ID，确保每次都是新的分析
                 st.rerun()
             
             if st.session_state.analyzing:
                 render_ai_thinking()
                 try:
-                    st.session_state.issues = get_analysis(st.session_state.parsed_content)
+                    # 传入 analysis_id 确保每次都执行新的分析
+                    st.session_state.issues = get_analysis(
+                        st.session_state.parsed_content,
+                        analysis_id=st.session_state.analysis_id
+                    )
                     st.session_state.scroll_to_id = None
                     st.session_state.selected_indices = list(range(len(st.session_state.issues)))
                     st.session_state.analyzing = False
