@@ -303,6 +303,28 @@ def main():
             st.markdown('</div>', unsafe_allow_html=True)
 
         with col2:
+            # Mock 模式开关
+            st.markdown('<div style="margin-bottom: 1rem;">', unsafe_allow_html=True)
+            
+            # 初始化 use_mock 状态
+            if 'use_mock' not in st.session_state:
+                st.session_state.use_mock = True
+            
+            use_mock = st.checkbox(
+                "🧪 使用 Mock 模式（调试用，不消耗 tokens）",
+                value=st.session_state.use_mock,
+                help="启用后将使用已保存的分析结果，不调用 LLM API",
+                key="mock_mode_checkbox"
+            )
+            st.session_state.use_mock = use_mock
+            
+            if use_mock:
+                if os.path.exists("mock_analysis_result.json"):
+                    st.info("💡 Mock 模式已启用：将使用已保存的分析结果")
+                else:
+                    st.warning("⚠️ 尚无保存的结果，首次分析将调用真实 LLM 并保存结果")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
             if st.button("开始智能分析", type="primary", use_container_width=True):
                 st.session_state.analyzing = True
                 st.rerun()
@@ -311,7 +333,8 @@ def main():
                 render_ai_thinking()
                 try:
                     st.session_state.issues = get_analysis(
-                        st.session_state.parsed_content
+                        st.session_state.parsed_content,
+                        use_mock=st.session_state.use_mock
                     )
                     st.session_state.scroll_to_id = None
                     st.session_state.selected_indices = list(range(len(st.session_state.issues)))
@@ -333,7 +356,7 @@ def main():
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown(f'<div class="issues-header">发现 {len(st.session_state.issues)} 个问题，请勾选需要保留的批注</div>', unsafe_allow_html=True)
-                    
+
                     # Issue selection and display
                     new_selected = []
                     for i, issue in enumerate(st.session_state.issues):
