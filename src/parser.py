@@ -114,6 +114,17 @@ class DocxParser:
                     sibling['id'] = f"doc-el-{eid}"
                 marker_p.decompose() # Remove the marker
 
+        # 5. Tag images: match content_list images with HTML <img> tags
+        img_tags = soup.find_all('img')
+        img_content_items = [item for item in content_list if item['type'] == 'image']
+        
+        # Simple matching: assume order is preserved
+        for img_tag, img_item in zip(img_tags, img_content_items):
+            img_id = img_item['id']
+            # Wrap img in a div for easier styling
+            wrapper = soup.new_tag('div', id=f"doc-el-{img_id}", style="margin: 10px 0;")
+            img_tag.wrap(wrapper)
+
         return {
             "content": content_list,
             "html": str(soup)

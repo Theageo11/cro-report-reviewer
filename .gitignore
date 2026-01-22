@@ -23,6 +23,7 @@ ENV/
 temp_images/
 *.tmp
 *.log
+mock_analysis_result.json
 
 # IDE
 .vscode/

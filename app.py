@@ -26,9 +26,29 @@ def get_doc_data(file_path):
     return parser.get_content_and_html(file_path)
 
 @st.cache_data
-def get_analysis(content_items):
+def get_analysis(content_items, use_mock=False):
+    """
+    分析文档内容
+    :param content_items: 文档内容列表
+    :param use_mock: 是否使用 Mock 模式（调试用）
+    """
+    import json
+    mock_file = "mock_analysis_result.json"
+
+    if use_mock and os.path.exists(mock_file):
+        # Mock 模式：加载保存的结果
+        with open(mock_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    # 真实模式：调用 LLM
     llm_client = QwenClient()
-    return llm_client.analyze_report(content_items)
+    result = llm_client.analyze_report(content_items)
+
+    # 保存结果供后续 Mock 使用
+    with open(mock_file, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    return result
 
 def highlight_text(html_content, issues):
     """高亮显示文档中的问题位置"""
@@ -64,14 +84,14 @@ def render_stats(issues):
     """渲染统计信息面板"""
     if issues is None:
         return
-    
+
     critical_count = sum(1 for i in issues if i["issue_type"] == "Critical")
     major_count = sum(1 for i in issues if i["issue_type"] == "Major")
     minor_count = sum(1 for i in issues if i["issue_type"] == "Minor")
     total_count = len(issues)
-    
+
     quality_score = max(0, 100 - (critical_count * 20 + major_count * 10 + minor_count * 5))
-    
+
     st.markdown(f"""
     <div class="stats-grid">
         <div class="stat-card">
@@ -157,7 +177,7 @@ def render_document_preview(html_content, scroll_to_id=None):
             }};
         </script>
         """
-    
+
     preview_html = f"""
     <html>
     <head>
@@ -196,15 +216,15 @@ def render_document_preview(html_content, scroll_to_id=None):
     </body>
     </html>
     """
-    
+
     components.html(preview_html, height=750, scrolling=True)
 
 def main():
     load_css()
-    
+
     # 创建头部容器，包含标题和上传器
     header_col1, header_col2 = st.columns([7, 3])
-        
+
     with header_col1:
         st.markdown("""
         <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); border-radius: 16px; 
@@ -215,7 +235,7 @@ def main():
             </p>
         </div>
         """, unsafe_allow_html=True)
-    
+
     with header_col2:
         st.markdown("""
         <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); border-radius: 16px; color:#6B7280; margin-bottom: 1rem;
@@ -229,7 +249,7 @@ def main():
             help="支持 DOCX 格式，最大 200MB",
             label_visibility="collapsed"
         )
-    
+
     st.markdown('<div style="margin-bottom: 2rem;"></div>', unsafe_allow_html=True)
 
     if uploaded_file:
@@ -268,7 +288,7 @@ def main():
 
         with col1:
             st.markdown('<h3 class="card-title">文档预览</h3>', unsafe_allow_html=True)
-            
+
             if not st.session_state.html_content:
                 with st.spinner("正在解析文档..."):
                     doc_data = get_doc_data(tmp_file_path)
@@ -286,7 +306,7 @@ def main():
             if st.button("开始智能分析", type="primary", use_container_width=True):
                 st.session_state.analyzing = True
                 st.rerun()
-            
+
             if st.session_state.analyzing:
                 render_ai_thinking()
                 try:
@@ -314,8 +334,7 @@ def main():
                 else:
                     st.markdown(f'<div class="issues-header">发现 {len(st.session_state.issues)} 个问题，请勾选需要保留的批注</div>', unsafe_allow_html=True)
                     
-                    st.markdown('<div class="issues-container">', unsafe_allow_html=True)
-                    
+                    # Issue selection and display
                     new_selected = []
                     for i, issue in enumerate(st.session_state.issues):
                         severity_map = {
@@ -348,7 +367,7 @@ def main():
                                 st.write(issue['suggestion'])
                                 st.markdown(f"**原文内容**")
                                 st.code(issue['original_text'], language="text")
-                                
+
                                 if st.button("定位到原文", key=f"btn-{i}", use_container_width=True):
                                     st.session_state.scroll_to_id = i
                                     st.rerun()
@@ -361,7 +380,7 @@ def main():
                     if selected_issues:
                         st.markdown("---")
                         st.info(f"已选择 {len(selected_issues)} 个问题")
-                        
+
                         # 用户点击按钮后才生成文档
                         if st.button("生成审核报告", type="primary", use_container_width=True):
                             with st.spinner("正在生成审核报告..."):
@@ -370,14 +389,14 @@ def main():
                                     generate_commented_docx(tmp_file_path, output_path, selected_issues)
                                     with open(output_path, "rb") as f:
                                         file_data = f.read()
-                                    
+
                                     # 存储到session state中，避免重复生成
                                     st.session_state.generated_file = file_data
                                     st.session_state.generated_filename = f"审核版_{uploaded_file.name}"
                                     st.success("✅ 报告生成成功！")
                                 except Exception as e:
                                     st.error(f"生成文档出错: {str(e)}")
-                        
+
                         # 如果已经生成过文档，显示下载按钮
                         if hasattr(st.session_state, 'generated_file') and st.session_state.generated_file:
                             st.download_button(
@@ -388,9 +407,9 @@ def main():
                                 use_container_width=True
                             )
                             st.info("💡 提示：请使用 Microsoft Word 打开查看右侧批注气泡")
-            
+
             st.markdown('</div>', unsafe_allow_html=True)
-    
+
     else:
         render_empty_state()
 
