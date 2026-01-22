@@ -220,7 +220,7 @@ def main():
         st.markdown("""
         <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); border-radius: 16px; color:#6B7280; margin-bottom: 1rem;
                     text-align: center; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16); border: 1px solid rgba(255, 255, 255, 0.2);">
-            <h4>上传报告文档</h4>
+            <span style="font-size: 1.2rem; font-weight: 600;">上传报告文档</span>
         </div>
         """, unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
@@ -258,15 +258,13 @@ def main():
             st.session_state.last_uploaded = uploaded_file.name
         if 'analyzing' not in st.session_state:
             st.session_state.analyzing = False
-        if 'analysis_id' not in st.session_state:
-            st.session_state.analysis_id = 0
 
         # 显示统计信息
         if st.session_state.issues is not None and len(st.session_state.issues) > 0:
             render_stats(st.session_state.issues)
 
         # 布局
-        col1, col2 = st.columns([6, 4])
+        col1, col2 = st.columns([7, 3])
 
         with col1:
             st.markdown('<h3 class="card-title">文档预览</h3>', unsafe_allow_html=True)
@@ -287,16 +285,13 @@ def main():
         with col2:
             if st.button("开始智能分析", type="primary", use_container_width=True):
                 st.session_state.analyzing = True
-                st.session_state.analysis_id += 1  # 增加分析ID，确保每次都是新的分析
                 st.rerun()
             
             if st.session_state.analyzing:
                 render_ai_thinking()
                 try:
-                    # 传入 analysis_id 确保每次都执行新的分析
                     st.session_state.issues = get_analysis(
-                        st.session_state.parsed_content,
-                        analysis_id=st.session_state.analysis_id
+                        st.session_state.parsed_content
                     )
                     st.session_state.scroll_to_id = None
                     st.session_state.selected_indices = list(range(len(st.session_state.issues)))
@@ -365,21 +360,34 @@ def main():
                     selected_issues = [st.session_state.issues[i] for i in st.session_state.selected_indices]
                     if selected_issues:
                         st.markdown("---")
-                        output_path = os.path.join(temp_dir, f"commented_{uploaded_file.name}")
-                        try:
-                            generate_commented_docx(tmp_file_path, output_path, selected_issues)
-                            with open(output_path, "rb") as f:
-                                st.download_button(
-                                    label="下载审核报告",
-                                    data=f,
-                                    file_name=f"审核版_{uploaded_file.name}",
-                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    type="primary",
-                                    use_container_width=True
-                                )
-                            st.info("提示：请使用 Microsoft Word 打开查看右侧批注气泡")
-                        except Exception as e:
-                            st.error(f"生成文档出错: {str(e)}")
+                        st.info(f"已选择 {len(selected_issues)} 个问题")
+                        
+                        # 用户点击按钮后才生成文档
+                        if st.button("生成审核报告", type="primary", use_container_width=True):
+                            with st.spinner("正在生成审核报告..."):
+                                output_path = os.path.join(temp_dir, f"commented_{uploaded_file.name}")
+                                try:
+                                    generate_commented_docx(tmp_file_path, output_path, selected_issues)
+                                    with open(output_path, "rb") as f:
+                                        file_data = f.read()
+                                    
+                                    # 存储到session state中，避免重复生成
+                                    st.session_state.generated_file = file_data
+                                    st.session_state.generated_filename = f"审核版_{uploaded_file.name}"
+                                    st.success("✅ 报告生成成功！")
+                                except Exception as e:
+                                    st.error(f"生成文档出错: {str(e)}")
+                        
+                        # 如果已经生成过文档，显示下载按钮
+                        if hasattr(st.session_state, 'generated_file') and st.session_state.generated_file:
+                            st.download_button(
+                                label="📥 下载审核报告",
+                                data=st.session_state.generated_file,
+                                file_name=st.session_state.generated_filename,
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True
+                            )
+                            st.info("💡 提示：请使用 Microsoft Word 打开查看右侧批注气泡")
             
             st.markdown('</div>', unsafe_allow_html=True)
     

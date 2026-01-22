@@ -3,6 +3,7 @@ from docx import Document
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from datetime import datetime
+from lxml import etree
 
 def get_or_create_comments_part(doc):
     """
@@ -55,7 +56,7 @@ def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
     comments_xml.append(comment)
     
     # Update the part's blob
-    comments_part._blob = comments_xml.xml.encode('utf-8')
+    comments_part._blob = etree.tostring(comments_xml, encoding='utf-8', xml_declaration=False)
 
     # 2. Find the target element
     target_element = None
@@ -66,7 +67,7 @@ def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
     for el in doc.element.body:
         if isinstance(el, CT_P):
             # Match parser.py logic
-            has_image = 'drawing' in el.xml
+            has_image = 'drawing' in etree.tostring(el, encoding='unicode')
             if has_image:
                 if curr_id == element_id:
                     target_element = el
