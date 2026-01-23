@@ -33,70 +33,91 @@ def allowed_file(filename):
 
 
 def highlight_text(html_content, issues, active_id=None):
-    """高亮显示文档中的问题位置"""
+    """高亮显示文档中的问题位置，支持文本、表格名和图片分类高亮"""
     if not issues:
         return html_content
-    
+        
+    import re
     soup = BeautifulSoup(html_content, 'html.parser')
     
     for i, issue in enumerate(issues):
         try:
             category = issue.get("category", "text")
-            eid = int(issue.get("element_id", -1))
+            # 支持两种格式：数字 (119) 或字符串 ("ID:63")
+            element_id_raw = issue.get("element_id", -1)
+            if isinstance(element_id_raw, str):
+                # 从 "ID:63" 中提取数字 63
+                match = re.search(r':(\d+)', element_id_raw)
+                eid = int(match.group(1)) if match else -1
+            else:
+                eid = int(element_id_raw)
             text_to_highlight = issue.get("original_text", "").strip()
             
-            color = "#fef3c7"  # Default Major (Yellow)
-            border_color = "#f59e0b"
+            # 根据问题级别选择颜色
             if issue["issue_type"] == "Critical":
-                color = "#fee2e2"  # Red
+                color = "#fee2e2"  # 红色（严重）
                 border_color = "#ef4444"
-            elif issue["issue_type"] == "Minor":
-                color = "#e0f2fe"  # Blue
+            elif issue["issue_type"] == "Major":
+                color = "#fef3c7"  # 黄色（主要）
+                border_color = "#f59e0b"
+            else:  # Minor
+                color = "#dbeafe"  # 蓝色（次要）
                 border_color = "#3b82f6"
             
             is_active = (active_id == i)
             anchor_id = f"issue-{i}"
             
-            if category == "image" and eid != -1:
-                target_tag = soup.find(id=f"doc-el-{eid}")
-                if target_tag:
-                    target_tag['id'] = anchor_id
-                    active_style = "outline: 5px solid #ef4444; outline-offset: 5px;" if is_active else f"outline: 3px solid {border_color};"
-                    target_tag['style'] = target_tag.get('style', '') + f"; {active_style}"
-            
-            elif (category == "text" or category == "table") and text_to_highlight:
+            # 统一处理：所有类型都高亮 original_text
+            if text_to_highlight:
                 found = False
                 search_tags = []
+                
+                # 优先在 element_id 对应的区域搜索
                 if eid != -1:
                     marker = soup.find(id=f"doc-el-{eid}")
                     if marker:
-                        search_tags.append(marker.parent)
+                        parent = marker.parent
+                        if parent:
+                            search_tags.append(parent)
                 
+                # 如果没有 element_id 或找不到，全局搜索
                 if not search_tags:
-                    search_tags = soup.find_all(['p', 'td', 'th', 'h1', 'h2', 'h3', 'li'])
+                    search_tags = soup.find_all(['p', 'td', 'th', 'h1', 'h2', 'h3', 'li', 'div'])
                 
+                # 在目标标签中搜索并高亮文本
                 for tag in search_tags:
                     for text_node in tag.find_all(string=True):
                         if text_to_highlight in text_node:
-                            active_style = "outline: 4px solid #ef4444; outline-offset: 2px; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);" if is_active else ""
-                            highlight_html = f'<span id="{anchor_id}" style="background-color: {color}; border-bottom: 2px solid {border_color}; font-weight: bold; {active_style}">{text_to_highlight}</span>'
+                            # 统一高亮样式：背景色 + 底部边框（根据 issue_type）
+                            # 如果是当前选中的批注，使用 box-shadow 模拟红色边框（兼容换行）
+                            if is_active:
+                                box_shadow = "box-shadow: 0 0 0 2px #ef4444;"
+                                # 使用 box-decoration-break 让每行都独立渲染
+                                decoration = "-webkit-box-decoration-break: clone; box-decoration-break: clone;"
+                            else:
+                                box_shadow = ""
+                                decoration = ""
+                            highlight_html = f'<span id="{anchor_id}" style="background-color: {color}; border-bottom: 2px solid {border_color}; padding: 2px 4px; border-radius: 3px; {box_shadow} {decoration}">{text_to_highlight}</span>'
                             new_content = text_node.replace(text_to_highlight, highlight_html)
                             new_soup = BeautifulSoup(new_content, 'html.parser')
                             text_node.replace_with(new_soup)
                             found = True
                             break
-                    if found:
+                    if found: 
                         break
                 
+                # 兜底：如果没找到文本，但有 element_id，高亮整个元素
                 if not found and eid != -1:
                     target_tag = soup.find(id=f"doc-el-{eid}")
                     if target_tag:
                         target_tag['id'] = anchor_id
-                        active_style = "outline: 4px solid #ef4444; outline-offset: 2px;" if is_active else ""
-                        target_tag['style'] = target_tag.get('style', '') + f"; background-color: {color}; border-left: 4px solid {border_color}; padding: 4px; {active_style}"
+                        # 整个元素高亮：背景色 + 左边框（根据 issue_type）
+                        # 如果是当前选中的批注，使用 box-shadow 加红色边框
+                        active_border = "box-shadow: 0 0 0 2px #ef4444;" if is_active else ""
+                        target_tag['style'] = target_tag.get('style', '') + f"; background-color: {color}; border-left: 4px solid {border_color}; padding: 8px; border-radius: 4px; {active_border}"
         except Exception:
             continue
-    
+                
     return str(soup)
 
 
@@ -254,12 +275,23 @@ def download_document(doc_id):
     if doc['status'] != 'analyzed':
         return jsonify({'error': '文档尚未分析'}), 400
     
+    # 获取用户选择要保留的问题索引
+    selected_indices = request.args.get('selected_indices')
+    issues_to_keep = doc['issues']
+    
+    if selected_indices:
+        try:
+            indices = [int(i) for i in selected_indices.split(',')]
+            issues_to_keep = [doc['issues'][i] for i in indices if i < len(doc['issues'])]
+        except (ValueError, TypeError):
+            pass
+    
     # 生成带批注的文档
     temp_dir = tempfile.gettempdir()
     output_path = os.path.join(temp_dir, f"commented_{doc['original_filename']}")
     
     try:
-        generate_commented_docx(doc['file_path'], output_path, doc['issues'])
+        generate_commented_docx(doc['file_path'], output_path, issues_to_keep)
         return send_file(
             output_path,
             as_attachment=True,
@@ -296,4 +328,3 @@ def settings():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
-

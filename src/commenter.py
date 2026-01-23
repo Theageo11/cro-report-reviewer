@@ -78,10 +78,12 @@ def add_native_comment(doc, element_id, text, original_text=None, author='Agent'
 
     # Strategy A: Search by original_text (more accurate for user)
     if original_text and original_text.strip():
-        search_text = original_text.strip()
+        # Clean up search text: remove extra whitespace and normalize
+        search_text = ' '.join(original_text.strip().split())
         for el in doc.element.body:
             if isinstance(el, (CT_P, CT_Tbl)):
-                el_text = get_text(el)
+                # Clean up element text for comparison
+                el_text = ' '.join(get_text(el).split())
                 if search_text in el_text:
                     if isinstance(el, CT_P):
                         target_node = el
@@ -89,7 +91,8 @@ def add_native_comment(doc, element_id, text, original_text=None, author='Agent'
                         # For tables, find the paragraph containing the text
                         ps = el.xpath('.//w:p')
                         for p in ps:
-                            if search_text in get_text(p):
+                            p_text = ' '.join(get_text(p).split())
+                            if search_text in p_text:
                                 target_node = p
                                 break
                         if not target_node and ps:

@@ -158,29 +158,36 @@
                     
                     <div class="border rounded-xl overflow-hidden transition-all duration-200 {{ style.bg }} {{ style.border }}" id="comment-{{ loop.index0 }}">
                         <!-- Comment Header -->
-                        <button onclick="toggleComment({{ loop.index0 }})" class="w-full px-4 py-3 flex items-start gap-3 hover:opacity-80 transition-opacity">
-                            <div class="flex-shrink-0 mt-0.5 {{ style.icon_color }}">
-                                <i data-lucide="{{ style.icon }}" class="w-5 h-5"></i>
+                        <div class="flex items-start gap-0">
+                            <!-- Checkbox for selection -->
+                            <div class="pl-4 pt-4">
+                                <input type="checkbox" checked class="issue-checkbox w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500" data-index="{{ loop.index0 }}">
                             </div>
-
-                            <div class="flex-1 min-w-0 text-left">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ style.badge_bg }} {{ style.badge_text }}">
-                                        {{ style.label }}
-                                    </span>
-                                    <h3 class="text-sm font-semibold flex-1 {{ style.title_color }}">
-                                        {{ issue.description[:50] }}{% if issue.description|length > 50 %}...{% endif %}
-                                    </h3>
+                            
+                            <button onclick="toggleComment({{ loop.index0 }})" class="flex-1 px-4 py-3 flex items-start gap-3 hover:opacity-80 transition-opacity">
+                                <div class="flex-shrink-0 mt-0.5 {{ style.icon_color }}">
+                                    <i data-lucide="{{ style.icon }}" class="w-5 h-5"></i>
                                 </div>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                                    {{ issue.suggestion }}
-                                </p>
-                            </div>
 
-                            <div class="flex-shrink-0 mt-1 text-gray-400 {{ style.icon_color }} comment-chevron-{{ loop.index0 }}">
-                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
-                            </div>
-                        </button>
+                                <div class="flex-1 min-w-0 text-left">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ style.badge_bg }} {{ style.badge_text }}">
+                                            {{ style.label }}
+                                        </span>
+                                        <h3 class="text-sm font-semibold flex-1 {{ style.title_color }}">
+                                            {{ issue.description[:50] }}{% if issue.description|length > 50 %}...{% endif %}
+                                        </h3>
+                                    </div>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                                        {{ issue.suggestion }}
+                                    </p>
+                                </div>
+
+                                <div class="flex-shrink-0 mt-1 text-gray-400 {{ style.icon_color }} comment-chevron-{{ loop.index0 }}">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </div>
+                            </button>
+                        </div>
 
                         <!-- Expanded Details -->
                         <div class="comment-details-{{ loop.index0 }} hidden px-4 pb-4 pt-0">
@@ -323,12 +330,23 @@ async function analyzeDocument(docId) {
 async function downloadDocument(docId) {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
+    
+    // Get selected indices
+    const checkboxes = document.querySelectorAll('.issue-checkbox:checked');
+    const selectedIndices = Array.from(checkboxes).map(cb => cb.getAttribute('data-index')).join(',');
+    
+    if (selectedIndices.length === 0) {
+        if (!confirm('您没有选择任何审核意见，下载的文档将不包含批注。是否继续？')) {
+            return;
+        }
+    }
+
     loadingOverlay.classList.remove('hidden');
     loadingOverlay.classList.add('flex');
     loadingText.textContent = '正在生成审核报告...';
     
     try {
-        window.location.href = `/api/download/${docId}`;
+        window.location.href = `/api/download/${docId}?selected_indices=${selectedIndices}`;
         showToast('正在下载...', 'success');
     } catch (error) {
         showToast('下载失败: ' + error.message, 'error');
