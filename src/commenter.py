@@ -66,15 +66,20 @@ def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
     
     for el in doc.element.body:
         if isinstance(el, CT_P):
-            # Match parser.py logic
-            has_image = 'drawing' in etree.tostring(el, encoding='unicode')
-            if has_image:
+            # Match parser.py logic EXACTLY
+            # 1. Check for images
+            if 'drawing' in etree.tostring(el, encoding='unicode'):
                 if curr_id == element_id:
                     target_element = el
                     break
                 curr_id += 1
             
-            if el.xpath('w:t'):
+            # 2. Check for text (using the same helper logic)
+            ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            text_nodes = el.findall('.//w:t', ns)
+            text = ''.join([node.text for node in text_nodes if node.text]).strip()
+            
+            if text:
                 if curr_id == element_id:
                     target_element = el
                     break

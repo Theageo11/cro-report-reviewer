@@ -25,7 +25,6 @@ def get_doc_data(file_path):
     parser = DocxParser()
     return parser.get_content_and_html(file_path)
 
-@st.cache_data
 def get_analysis(content_items, use_mock=False):
     """
     分析文档内容
@@ -45,35 +44,80 @@ def get_analysis(content_items, use_mock=False):
     result = llm_client.analyze_report(content_items)
 
     # 保存结果供后续 Mock 使用
-    with open(mock_file, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    try:
+        with open(mock_file, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
     return result
 
-def highlight_text(html_content, issues):
-    """高亮显示文档中的问题位置"""
+def highlight_text(html_content, issues, active_id=None):
+    """高亮显示文档中的问题位置，支持文本、表格名和图片分类高亮"""
     if not issues:
         return html_content
         
     from bs4 import BeautifulSoup
+    import re
     soup = BeautifulSoup(html_content, 'html.parser')
     
     for i, issue in enumerate(issues):
         try:
+            category = issue.get("category", "text")
             eid = int(issue.get("element_id", -1))
-            if eid == -1:
-                continue
+            text_to_highlight = issue.get("original_text", "").strip()
             
-            color = "yellow"
+            color = "#fef3c7" # Default Major (Yellow)
+            border_color = "#f59e0b"
             if issue["issue_type"] == "Critical":
-                color = "#fee2e2"
-            elif issue["issue_type"] == "Major":
-                color = "#fef3c7"
+                color = "#fee2e2" # Red
+                border_color = "#ef4444"
+            elif issue["issue_type"] == "Minor":
+                color = "#e0f2fe" # Blue
+                border_color = "#3b82f6"
+            
+            is_active = (active_id == i)
+            anchor_id = f"issue-{i}"
+            
+            if category == "image" and eid != -1:
+                # 图片高亮：直接定位到图片元素
+                target_tag = soup.find(id=f"doc-el-{eid}")
+                if target_tag:
+                    target_tag['id'] = anchor_id
+                    active_style = "outline: 5px solid #ef4444; outline-offset: 5px;" if is_active else f"outline: 3px solid {border_color};"
+                    target_tag['style'] = target_tag.get('style', '') + f"; {active_style}"
+            
+            elif (category == "text" or category == "table") and text_to_highlight:
+                # 文本或表格名高亮：在全文中搜索文本片段
+                # 我们优先在 element_id 对应的标签中找，找不到再全局找
+                found = False
+                search_tags = []
+                if eid != -1:
+                    marker = soup.find(id=f"doc-el-{eid}")
+                    if marker: search_tags.append(marker.parent)
                 
-            target_tag = soup.find(id=f"doc-el-{eid}")
-            if target_tag:
-                target_tag['style'] = target_tag.get('style', '') + f"; background-color: {color}; border-left: 4px solid #ef4444; padding: 8px;"
-                target_tag['id'] = f"issue-{i}"
+                if not search_tags:
+                    search_tags = soup.find_all(['p', 'td', 'th', 'h1', 'h2', 'h3', 'li'])
+                
+                for tag in search_tags:
+                    for text_node in tag.find_all(string=True):
+                        if text_to_highlight in text_node:
+                            active_style = "outline: 4px solid #ef4444; outline-offset: 2px; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);" if is_active else ""
+                            highlight_html = f'<span id="{anchor_id}" style="background-color: {color}; border-bottom: 2px solid {border_color}; font-weight: bold; {active_style}">{text_to_highlight}</span>'
+                            new_content = text_node.replace(text_to_highlight, highlight_html)
+                            new_soup = BeautifulSoup(new_content, 'html.parser')
+                            text_node.replace_with(new_soup)
+                            found = True
+                            break
+                    if found: break
+                
+                if not found and eid != -1:
+                    # 如果没找到文本，但有 ID，则对整个元素进行兜底高亮
+                    target_tag = soup.find(id=f"doc-el-{eid}")
+                    if target_tag:
+                        target_tag['id'] = anchor_id
+                        active_style = "outline: 4px solid #ef4444; outline-offset: 2px;" if is_active else ""
+                        target_tag['style'] = target_tag.get('style', '') + f"; background-color: {color}; border-left: 4px solid {border_color}; padding: 4px; {active_style}"
         except Exception:
             continue
                 
@@ -170,8 +214,6 @@ def render_document_preview(html_content, scroll_to_id=None):
                     var element = document.getElementById('issue-{scroll_to_id}');
                     if (element) {{
                         element.scrollIntoView({{behavior: 'smooth', block: 'center'}});
-                        element.style.outline = '4px solid #ef4444';
-                        setTimeout(function() {{ element.style.outline = 'none'; }}, 2000);
                     }}
                 }}, 100);
             }};
@@ -297,7 +339,7 @@ def main():
             
             display_html = st.session_state.html_content
             if st.session_state.issues:
-                display_html = highlight_text(display_html, st.session_state.issues)
+                display_html = highlight_text(display_html, st.session_state.issues, active_id=st.session_state.scroll_to_id)
             
             render_document_preview(display_html, st.session_state.scroll_to_id)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -308,7 +350,7 @@ def main():
             
             # 初始化 use_mock 状态
             if 'use_mock' not in st.session_state:
-                st.session_state.use_mock = True
+                st.session_state.use_mock = False
             
             use_mock = st.checkbox(
                 "🧪 使用 Mock 模式（调试用，不消耗 tokens）",
@@ -325,9 +367,18 @@ def main():
                     st.warning("⚠️ 尚无保存的结果，首次分析将调用真实 LLM 并保存结果")
             st.markdown('</div>', unsafe_allow_html=True)
             
-            if st.button("开始智能分析", type="primary", use_container_width=True):
-                st.session_state.analyzing = True
-                st.rerun()
+            col_btn1, col_btn2 = st.columns([2, 1])
+            with col_btn1:
+                if st.button("开始智能分析", type="primary", use_container_width=True):
+                    st.session_state.analyzing = True
+                    st.rerun()
+            with col_btn2:
+                if st.button("🔄 重置", help="清除缓存并重新开始", use_container_width=True):
+                    st.cache_data.clear()
+                    st.session_state.issues = None
+                    st.session_state.html_content = ""
+                    st.session_state.highlighted_html = ""
+                    st.rerun()
 
             if st.session_state.analyzing:
                 render_ai_thinking()

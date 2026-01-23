@@ -38,8 +38,12 @@ class QwenClient:
 **输出要求：**
 请以严格的 JSON 格式输出你的发现。JSON 应为一个对象列表。
 每个对象必须包含：
-- "element_id": 发现问题的元素 ID。输入内容中每个部分都带有 [ID: n] 标记，请务必返回对应的数字 n。
-- "original_text": 发现问题的准确文本片段。如果是表格问题，请提供表格编号（如“1-1”）。**严禁在此字段中包含大量表格数据，长度严禁超过 50 个字符。**
+- "category": 问题的类别，必须是 "text"、"table" 或 "image" 之一。
+- "element_id": 发现问题的元素 ID（从输入内容的 [[ID:n]] 标记中提取）。
+- "original_text": 用于高亮的文本片段。
+    - 如果 category 是 "text"，请提供文档中**完全一致**的原始文本片段。
+    - 如果 category 是 "table"，请提供该表格的**完整名称或编号**（如“表 1-1”）。
+    - 如果 category 是 "image"，此字段可填写图片的简要描述。
 - "issue_type": "Critical"、"Major" 或 "Minor" 之一。
 - "description": 问题的详细中文描述。
 - "suggestion": 如何修复该问题的中文建议。
@@ -62,8 +66,13 @@ class QwenClient:
                 user_content.append({"text": f"{prefix}Table:\n{item['content']}"})
             elif item["type"] == "image":
                 user_content.append({"text": prefix})
-                abs_path = os.path.abspath(item["path"])
-                user_content.append({"image": f"file://{abs_path}"})
+                img_data = item["path"]
+                if img_data.startswith("data:image"):
+                    # It's a base64 data URI from mammoth
+                    user_content.append({"image": img_data})
+                else:
+                    abs_path = os.path.abspath(img_data)
+                    user_content.append({"image": f"file://{abs_path}"})
 
         messages.append({
             "role": "user",

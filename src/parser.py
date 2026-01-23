@@ -19,7 +19,7 @@ class DocxParser:
     def get_content_and_html(self, file_path: str) -> Dict[str, Any]:
         """
         Parse DOCX and return both structured content and tagged HTML.
-        Uses a robust sibling-tagging strategy to avoid breaking Word fields.
+        Uses a robust sibling-tagging strategy to ensure 1:1 mapping with DOCX elements.
         """
         from bs4 import BeautifulSoup
         
@@ -27,7 +27,6 @@ class DocxParser:
         doc = docx.Document(file_path)
         content_list = []
         element_id = 0
-        
         for element in doc.element.body:
             if isinstance(element, CT_P):
                 paragraph = Paragraph(element, doc)
@@ -35,27 +34,15 @@ class DocxParser:
                 for img_path in images:
                     content_list.append({"id": element_id, "type": "image", "path": img_path})
                     element_id += 1
-                
-                # 使用更可靠的方法提取段落文本
-                # paragraph.text在某些情况下会失败，改用直接从XML提取
                 text = self._extract_paragraph_text(element).strip()
                 if text:
-                    content_list.append({"id": element_id, "type": "text", "content": text})
+                    content_list.append({"id": element_id, "type": "text", "content": f"[[ID:{element_id}]] {text}"})
                     element_id += 1
             elif isinstance(element, CT_Tbl):
                 table = Table(element, doc)
                 table_data = self._extract_table_data(table)
-                content_list.append({"id": element_id, "type": "table", "content": table_data})
+                content_list.append({"id": element_id, "type": "table", "content": f"[[ID:{element_id}]]\n{table_data}"})
                 element_id += 1
-            else:
-                # 处理SDT (Structured Document Tag) 元素，如目录等
-                tag = element.tag
-                if 'sdt' in tag.lower():
-                    sdt_texts = self._extract_sdt_content(element, doc)
-                    for text in sdt_texts:
-                        if text.strip():
-                            content_list.append({"id": element_id, "type": "text", "content": text})
-                            element_id += 1
 
         # 2. Create a marked version for HTML conversion
         # We insert marker paragraphs BEFORE each target element
@@ -68,7 +55,6 @@ class DocxParser:
                 paragraph = Paragraph(element, marked_doc)
                 images = self._extract_images_from_paragraph(paragraph, marked_doc)
                 element_id += len(images)
-                # 使用更可靠的文本提取方法
                 text = self._extract_paragraph_text(element).strip()
                 if text:
                     target_id = element_id
@@ -76,20 +62,6 @@ class DocxParser:
             elif isinstance(element, CT_Tbl):
                 target_id = element_id
                 element_id += 1
-            else:
-                # 处理SDT元素
-                tag = element.tag
-                if 'sdt' in tag.lower():
-                    sdt_texts = self._extract_sdt_content(element, marked_doc)
-                    # 为SDT中的每个文本项创建标记
-                    for text in sdt_texts:
-                        if text.strip():
-                            target_id = element_id
-                            # 为SDT中的每个段落添加标记
-                            new_p = marked_doc.add_paragraph(f"MARKER_ID_{target_id}")
-                            element.addprevious(new_p._p)
-                            element_id += 1
-                    continue  # 跳过后续的标记插入
             
             if target_id is not None:
                 # Insert a marker paragraph before this element
@@ -114,21 +86,18 @@ class DocxParser:
                     sibling['id'] = f"doc-el-{eid}"
                 marker_p.decompose() # Remove the marker
 
-        # 5. Tag images: match content_list images with HTML <img> tags
-        img_tags = soup.find_all('img')
-        img_content_items = [item for item in content_list if item['type'] == 'image']
-        
-        # Simple matching: assume order is preserved
-        for img_tag, img_item in zip(img_tags, img_content_items):
-            img_id = img_item['id']
-            # Wrap img in a div for easier styling
-            wrapper = soup.new_tag('div', id=f"doc-el-{img_id}", style="margin: 10px 0;")
-            img_tag.wrap(wrapper)
-
         return {
             "content": content_list,
             "html": str(soup)
         }
+
+    def _html_table_to_text(self, table_tag) -> str:
+        """Convert BeautifulSoup table tag to simple text format."""
+        rows = []
+        for tr in table_tag.find_all('tr'):
+            cells = [td.get_text().strip().replace('\n', ' ') for td in tr.find_all(['td', 'th'])]
+            rows.append("| " + " | ".join(cells) + " |")
+        return "\n".join(rows)
 
     def _extract_images_from_paragraph(self, paragraph: Paragraph, doc: Document) -> List[str]:
         images = []
