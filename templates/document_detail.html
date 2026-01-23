@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.original_filename }} - 明捷医药报告审核Demo{% endblock %}
+
+{% block content %}
+<!-- 返回按钮 -->
+<div class="breadcrumb">
+    <a href="{{ url_for('documents') }}"><i class="fas fa-arrow-left"></i> 返回文档列表</a>
+    <span class="separator">/</span>
+    <span>{{ document.original_filename }}</span>
+</div>
+
+<!-- 文档状态和质量评分 -->
+{% if document.status == 'analyzed' %}
+<div class="detail-stats">
+    <div class="stat-card-detail stat-score">
+        <div class="stat-icon">📊</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ document.quality_score }}</div>
+            <div class="stat-label">质量评分</div>
+        </div>
+    </div>
+    <div class="stat-card-detail stat-critical-detail">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ document.critical_count }}</div>
+            <div class="stat-label">严重问题</div>
+        </div>
+    </div>
+    <div class="stat-card-detail stat-major-detail">
+        <div class="stat-icon">🟡</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ document.major_count }}</div>
+            <div class="stat-label">主要问题</div>
+        </div>
+    </div>
+    <div class="stat-card-detail stat-minor-detail">
+        <div class="stat-icon">🔵</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ document.minor_count }}</div>
+            <div class="stat-label">次要问题</div>
+        </div>
+    </div>
+    <div class="stat-card-detail stat-total">
+        <div class="stat-icon">📝</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ document.issues|length }}</div>
+            <div class="stat-label">总问题数</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 主内容区域 -->
+<div class="detail-layout">
+    <!-- 左侧：文档预览 -->
+    <div class="detail-preview">
+        <div class="preview-header">
+            <h3><i class="fas fa-file-alt"></i> 文档预览</h3>
+            {% if document.status != 'analyzed' %}
+            <button class="btn btn-primary btn-sm" onclick="analyzeDocument('{{ document.id }}')">
+                <i class="fas fa-search"></i>
+                开始分析
+            </button>
+            {% endif %}
+        </div>
+        <div class="preview-content">
+            {% if document.status == 'uploaded' %}
+            <div class="preview-empty">
+                <i class="fas fa-info-circle"></i>
+                <p>点击"开始分析"以查看文档内容和问题</p>
+            </div>
+            {% elif document.status == 'analyzing' %}
+            <div class="preview-empty">
+                <div class="spinner"></div>
+                <p>正在分析中，请稍候...</p>
+            </div>
+            {% else %}
+            <div class="document-html-container">
+                {{ html_content|safe }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 右侧：问题列表 -->
+    <div class="detail-issues">
+        <div class="issues-header">
+            <h3><i class="fas fa-exclamation-triangle"></i> 问题列表</h3>
+            {% if document.status == 'analyzed' and document.issues %}
+            <button class="btn btn-success btn-sm" onclick="downloadDocument('{{ document.id }}')">
+                <i class="fas fa-download"></i>
+                下载审核报告
+            </button>
+            {% endif %}
+        </div>
+        
+        {% if document.status == 'analyzed' %}
+            {% if document.issues %}
+            <div class="issues-list">
+                {% for issue in document.issues %}
+                <div class="issue-item issue-{{ issue.issue_type.lower() }}" id="issue-card-{{ loop.index0 }}">
+                    <div class="issue-header-item">
+                        <span class="issue-number">#{{ loop.index }}</span>
+                        <span class="issue-badge badge-{{ issue.issue_type.lower() }}">
+                            {% if issue.issue_type == 'Critical' %}严重
+                            {% elif issue.issue_type == 'Major' %}主要
+                            {% else %}次要
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="issue-content">
+                        <h4 class="issue-title">{{ issue.description }}</h4>
+                        <div class="issue-section">
+                            <strong>修改建议：</strong>
+                            <p>{{ issue.suggestion }}</p>
+                        </div>
+                        <div class="issue-section">
+                            <strong>原文内容：</strong>
+                            <code class="issue-original">{{ issue.original_text }}</code>
+                        </div>
+                        <button class="btn btn-link btn-sm" onclick="scrollToIssue({{ loop.index0 }})">
+                            <i class="fas fa-location-arrow"></i>
+                            定位到原文
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-issues">
+                <i class="fas fa-check-circle"></i>
+                <h4>文档质量优秀</h4>
+                <p>未发现问题</p>
+            </div>
+            {% endif %}
+        {% else %}
+        <div class="issues-empty">
+            <i class="fas fa-list-alt"></i>
+            <p>暂无分析结果</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p id="loadingText">处理中...</p>
+    </div>
+</div>
+
+<script>
+// 分析文档
+async function analyzeDocument(docId) {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    loadingOverlay.style.display = 'flex';
+    loadingText.textContent = 'AI 正在分析文档...';
+    
+    try {
+        const response = await fetch(`/api/analyze/${docId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ use_mock: false })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('分析完成！', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error || '分析失败', 'error');
+        }
+    } catch (error) {
+        showToast('分析失败: ' + error.message, 'error');
+    } finally {
+        loadingOverlay.style.display = 'none';
+    }
+}
+
+// 下载文档
+async function downloadDocument(docId) {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    loadingOverlay.style.display = 'flex';
+    loadingText.textContent = '正在生成审核报告...';
+    
+    try {
+        window.location.href = `/api/download/${docId}`;
+        showToast('正在下载...', 'success');
+    } catch (error) {
+        showToast('下载失败: ' + error.message, 'error');
+    } finally {
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+        }, 1000);
+    }
+}
+
+// 滚动到问题位置
+function scrollToIssue(issueIndex) {
+    const previewContent = document.querySelector('.preview-content');
+    const targetElement = document.querySelector(`#issue-${issueIndex}`);
+    
+    if (targetElement && previewContent) {
+        // 获取目标元素相对于预览容器的位置
+        const containerRect = previewContent.getBoundingClientRect();
+        const targetRect = targetElement.getBoundingClientRect();
+        
+        // 计算滚动位置
+        const scrollTop = previewContent.scrollTop + (targetRect.top - containerRect.top) - (containerRect.height / 2) + (targetRect.height / 2);
+        
+        // 平滑滚动
+        previewContent.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+        });
+        
+        // 添加高亮动画
+        targetElement.style.animation = 'highlight-pulse 1s ease-in-out';
+        setTimeout(() => {
+            targetElement.style.animation = '';
+        }, 1000);
+    } else {
+        console.log('未找到目标元素:', `#issue-${issueIndex}`);
+    }
+}
+</script>
+{% endblock %}
+

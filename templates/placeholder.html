@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_name }} - 明捷医药报告审核Demo{% endblock %}
+
+{% block content %}
+<div class="placeholder-page">
+    <div class="placeholder-content">
+        <i class="fas fa-tools placeholder-icon"></i>
+        <h2>{{ page_name }}</h2>
+        <p>此功能正在开发中...</p>
+        <a href="{{ url_for('documents') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i>
+            返回 Documents
+        </a>
+    </div>
+</div>
+{% endblock %}
+

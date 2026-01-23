@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Documents - 明捷医药报告审核Demo{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title-section">
+        <h2 class="page-title">所有文档</h2>
+        <span class="page-subtitle">{{ documents|length }} 个文档</span>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        <i class="fas fa-upload"></i>
+        上传文档
+    </button>
+    <input type="file" id="fileInput" accept=".docx" style="display: none;" onchange="handleFileUpload(event)">
+</div>
+
+<!-- 统计卡片 -->
+{% set critical_count = documents|selectattr('status', 'equalto', 'analyzed')|selectattr('critical_count', 'gt', 0)|list|length %}
+{% set major_count = documents|selectattr('status', 'equalto', 'analyzed')|selectattr('major_count', 'gt', 0)|list|length %}
+{% set analyzed_count = documents|selectattr('status', 'equalto', 'analyzed')|list|length %}
+{% set total_count = documents|length %}
+
+<div class="stats-overview">
+    <div class="stat-card stat-critical">
+        <div class="stat-number">{{ critical_count }}</div>
+        <div class="stat-label">高风险</div>
+    </div>
+    <div class="stat-card stat-major">
+        <div class="stat-number">{{ major_count }}</div>
+        <div class="stat-label">中风险</div>
+    </div>
+    <div class="stat-card stat-safe">
+        <div class="stat-number">{{ analyzed_count - critical_count - major_count }}</div>
+        <div class="stat-label">低风险</div>
+    </div>
+    <div class="stat-card stat-approved">
+        <div class="stat-number">{{ analyzed_count }}</div>
+        <div class="stat-label">已审核</div>
+    </div>
+    <div class="stat-card stat-pending">
+        <div class="stat-number">{{ total_count - analyzed_count }}</div>
+        <div class="stat-label">待审核</div>
+    </div>
+</div>
+
+<!-- 文档列表 -->
+{% if documents %}
+<div class="documents-grid">
+    {% for doc in documents %}
+    <div class="document-card" onclick="window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'">
+        <div class="document-header">
+            <div class="document-type-badge">
+                {% if doc.status == 'analyzed' %}
+                    {% if doc.critical_count > 0 %}
+                        <span class="badge badge-critical">高风险</span>
+                    {% elif doc.major_count > 0 %}
+                        <span class="badge badge-major">中风险</span>
+                    {% else %}
+                        <span class="badge badge-safe">低风险</span>
+                    {% endif %}
+                {% elif doc.status == 'analyzing' %}
+                    <span class="badge badge-analyzing">分析中</span>
+                {% else %}
+                    <span class="badge badge-pending">待审核</span>
+                {% endif %}
+            </div>
+            <button class="btn-icon" onclick="event.stopPropagation(); deleteDocument('{{ doc.id }}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+        
+        <div class="document-info">
+            <i class="fas fa-file-word document-icon"></i>
+            <div class="document-name" title="{{ doc.original_filename }}">
+                {{ doc.original_filename }}
+            </div>
+        </div>
+        
+        {% if doc.status == 'analyzed' %}
+        <div class="document-score">
+            <div class="score-circle">
+                <svg width="80" height="80">
+                    <circle cx="40" cy="40" r="35" fill="none" stroke="#e5e7eb" stroke-width="6"/>
+                    <circle cx="40" cy="40" r="35" fill="none" 
+                            stroke="{% if doc.quality_score >= 80 %}#66D9A6{% elif doc.quality_score >= 60 %}#FF9F66{% else %}#FF6B6B{% endif %}" 
+                            stroke-width="6"
+                            stroke-dasharray="{{ (doc.quality_score / 100 * 220)|round }}, 220"
+                            transform="rotate(-90 40 40)"/>
+                </svg>
+                <div class="score-text">
+                    <span class="score-value">{{ doc.quality_score }}</span>
+                    <span class="score-label">评分</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="document-summary">
+            <div class="summary-box summary-critical">
+                <span class="summary-label">严重</span>
+                <span class="summary-value">{{ doc.critical_count }}</span>
+            </div>
+            <div class="summary-box summary-major">
+                <span class="summary-label">主要</span>
+                <span class="summary-value">{{ doc.major_count }}</span>
+            </div>
+            <div class="summary-box summary-minor">
+                <span class="summary-label">次要</span>
+                <span class="summary-value">{{ doc.minor_count }}</span>
+            </div>
+        </div>
+        
+        <div class="document-footer">
+            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'">
+                <i class="fas fa-eye"></i>
+                查看详情
+            </button>
+        </div>
+        {% else %}
+        <div class="document-actions">
+            <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); analyzeDocument('{{ doc.id }}')">
+                <i class="fas fa-search"></i>
+                开始分析
+            </button>
+        </div>
+        {% endif %}
+        
+        <div class="document-meta">
+            <span><i class="far fa-clock"></i> {{ doc.created_at[:10] }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-folder-open empty-icon"></i>
+    <h3>暂无文档</h3>
+    <p>上传您的第一个报告文档开始审核</p>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        <i class="fas fa-upload"></i>
+        上传文档
+    </button>
+</div>
+{% endif %}
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p id="loadingText">处理中...</p>
+    </div>
+</div>
+
+<script>
+// 上传文档
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    loadingOverlay.style.display = 'flex';
+    loadingText.textContent = '正在上传文档...';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('上传成功！', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error || '上传失败', 'error');
+        }
+    } catch (error) {
+        showToast('上传失败: ' + error.message, 'error');
+    } finally {
+        loadingOverlay.style.display = 'none';
+        event.target.value = '';
+    }
+}
+
+// 分析文档
+async function analyzeDocument(docId) {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    loadingOverlay.style.display = 'flex';
+    loadingText.textContent = 'AI 正在分析文档...';
+    
+    try {
+        const response = await fetch(`/api/analyze/${docId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ use_mock: false })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('分析完成！', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error || '分析失败', 'error');
+        }
+    } catch (error) {
+        showToast('分析失败: ' + error.message, 'error');
+    } finally {
+        loadingOverlay.style.display = 'none';
+    }
+}
+
+// 删除文档
+async function deleteDocument(docId) {
+    if (!confirm('确定要删除这个文档吗？')) return;
+    
+    try {
+        const response = await fetch(`/api/documents/${docId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('删除成功！', 'success');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(data.error || '删除失败', 'error');
+        }
+    } catch (error) {
+        showToast('删除失败: ' + error.message, 'error');
+    }
+}
+</script>
+{% endblock %}
+
