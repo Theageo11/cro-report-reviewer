@@ -11,7 +11,7 @@ dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
 
 class QwenClient:
     def __init__(self):
-        self.model = "qwen-vl-max"
+        self.model = "qwen-vl-max-latest"
 
     def analyze_report(self, content_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
