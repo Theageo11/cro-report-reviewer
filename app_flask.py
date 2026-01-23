@@ -110,7 +110,20 @@ def index():
 def documents():
     """文档列表页面"""
     docs = db.get_all_documents()
-    return render_template('documents.html', documents=docs)
+    
+    # 计算风险统计数据
+    critical_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('critical_count', 0) > 0)
+    major_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('major_count', 0) > 0)
+    analyzed_count = sum(1 for d in docs if d.get('status') == 'analyzed')
+    low_count = analyzed_count - critical_count - major_count
+    
+    risk_stats = {
+        'high': critical_count,
+        'medium': major_count,
+        'low': low_count if low_count > 0 else 0
+    }
+    
+    return render_template('documents.html', documents=docs, risk_stats=risk_stats)
 
 
 @app.route('/documents/<doc_id>')
@@ -131,7 +144,20 @@ def document_detail(doc_id):
         if doc['status'] == 'analyzed' and doc.get('issues'):
             html_content = highlight_text(html_content, doc['issues'])
     
-    return render_template('document_detail.html', document=doc, html_content=html_content)
+    # 计算风险统计数据（用于侧边栏）
+    docs = db.get_all_documents()
+    critical_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('critical_count', 0) > 0)
+    major_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('major_count', 0) > 0)
+    analyzed_count = sum(1 for d in docs if d.get('status') == 'analyzed')
+    low_count = analyzed_count - critical_count - major_count
+    
+    risk_stats = {
+        'high': critical_count,
+        'medium': major_count,
+        'low': low_count if low_count > 0 else 0
+    }
+    
+    return render_template('document_detail.html', document=doc, html_content=html_content, risk_stats=risk_stats)
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -244,22 +270,28 @@ def download_document(doc_id):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/dashboard')
-def dashboard():
-    """Dashboard 页面（占位）"""
-    return render_template('placeholder.html', page_name='Dashboard')
+@app.route('/quality')
+def quality():
+    """质量研究页面（占位）"""
+    return render_template('placeholder.html', page_name='质量研究')
 
 
-@app.route('/knowledge-base')
-def knowledge_base():
-    """Knowledge Base 页面（占位）"""
-    return render_template('placeholder.html', page_name='Knowledge Base')
+@app.route('/analysis')
+def analysis():
+    """数据分析页面（占位）"""
+    return render_template('placeholder.html', page_name='数据分析')
+
+
+@app.route('/reports')
+def reports():
+    """检测报告页面（占位）"""
+    return render_template('placeholder.html', page_name='检测报告')
 
 
 @app.route('/settings')
 def settings():
     """Settings 页面（占位）"""
-    return render_template('placeholder.html', page_name='Settings')
+    return render_template('placeholder.html', page_name='设置')
 
 
 if __name__ == '__main__':

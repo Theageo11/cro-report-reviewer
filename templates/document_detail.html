@@ -3,160 +3,290 @@
 {% block title %}{{ document.original_filename }} - 明捷医药报告审核Demo{% endblock %}
 
 {% block content %}
-<!-- 返回按钮 -->
-<div class="breadcrumb">
-    <a href="{{ url_for('documents') }}"><i class="fas fa-arrow-left"></i> 返回文档列表</a>
-    <span class="separator">/</span>
-    <span>{{ document.original_filename }}</span>
-</div>
+<div class="h-[calc(100vh-6rem)] flex flex-col">
+    <!-- Top Bar - Fixed -->
+    <div class="flex-shrink-0 flex items-center justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <button onclick="window.location.href='{{ url_for('documents') }}'" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700 dark:text-gray-300"></i>
+            </button>
+            <div>
+                <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-50">
+                    文档审核
+                </h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ document.original_filename }}
+                </p>
+            </div>
+        </div>
 
-<!-- 文档状态和质量评分 -->
-{% if document.status == 'analyzed' %}
-<div class="detail-stats">
-    <div class="stat-card-detail stat-score">
-        <div class="stat-icon">📊</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ document.quality_score }}</div>
-            <div class="stat-label">质量评分</div>
-        </div>
-    </div>
-    <div class="stat-card-detail stat-critical-detail">
-        <div class="stat-icon">🔴</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ document.critical_count }}</div>
-            <div class="stat-label">严重问题</div>
-        </div>
-    </div>
-    <div class="stat-card-detail stat-major-detail">
-        <div class="stat-icon">🟡</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ document.major_count }}</div>
-            <div class="stat-label">主要问题</div>
-        </div>
-    </div>
-    <div class="stat-card-detail stat-minor-detail">
-        <div class="stat-icon">🔵</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ document.minor_count }}</div>
-            <div class="stat-label">次要问题</div>
-        </div>
-    </div>
-    <div class="stat-card-detail stat-total">
-        <div class="stat-icon">📝</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ document.issues|length }}</div>
-            <div class="stat-label">总问题数</div>
-        </div>
-    </div>
-</div>
-{% endif %}
+        <div class="flex items-center gap-3">
+            {% if document.status == 'analyzed' %}
+            <div class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                    AI评分:
+                </div>
+                <div class="text-lg font-bold text-primary-600 dark:text-primary-400">
+                    {{ document.quality_score }}%
+                </div>
+            </div>
 
-<!-- 主内容区域 -->
-<div class="detail-layout">
-    <!-- 左侧：文档预览 -->
-    <div class="detail-preview">
-        <div class="preview-header">
-            <h3><i class="fas fa-file-alt"></i> 文档预览</h3>
-            {% if document.status != 'analyzed' %}
-            <button class="btn btn-primary btn-sm" onclick="analyzeDocument('{{ document.id }}')">
-                <i class="fas fa-search"></i>
+            <button onclick="downloadDocument('{{ document.id }}')" class="px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-xl transition-colors">
+                下载审核报告
+            </button>
+            {% else %}
+            <button onclick="analyzeDocument('{{ document.id }}')" class="px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-xl transition-colors">
                 开始分析
             </button>
             {% endif %}
         </div>
-        <div class="preview-content">
-            {% if document.status == 'uploaded' %}
-            <div class="preview-empty">
-                <i class="fas fa-info-circle"></i>
-                <p>点击"开始分析"以查看文档内容和问题</p>
-            </div>
-            {% elif document.status == 'analyzing' %}
-            <div class="preview-empty">
-                <div class="spinner"></div>
-                <p>正在分析中，请稍候...</p>
-            </div>
-            {% else %}
-            <div class="document-html-container">
-                {{ html_content|safe }}
-            </div>
-            {% endif %}
-        </div>
     </div>
 
-    <!-- 右侧：问题列表 -->
-    <div class="detail-issues">
-        <div class="issues-header">
-            <h3><i class="fas fa-exclamation-triangle"></i> 问题列表</h3>
-            {% if document.status == 'analyzed' and document.issues %}
-            <button class="btn btn-success btn-sm" onclick="downloadDocument('{{ document.id }}')">
-                <i class="fas fa-download"></i>
-                下载审核报告
-            </button>
-            {% endif %}
-        </div>
-        
-        {% if document.status == 'analyzed' %}
-            {% if document.issues %}
-            <div class="issues-list">
-                {% for issue in document.issues %}
-                <div class="issue-item issue-{{ issue.issue_type.lower() }}" id="issue-card-{{ loop.index0 }}">
-                    <div class="issue-header-item">
-                        <span class="issue-number">#{{ loop.index }}</span>
-                        <span class="issue-badge badge-{{ issue.issue_type.lower() }}">
-                            {% if issue.issue_type == 'Critical' %}严重
-                            {% elif issue.issue_type == 'Major' %}主要
-                            {% else %}次要
-                            {% endif %}
-                        </span>
+    <!-- Review Content - Takes remaining height -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0 overflow-hidden">
+        <!-- Left: Document Preview -->
+        <div class="min-h-0 h-full overflow-hidden">
+            <div class="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <!-- Header - Fixed -->
+                <div class="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-50">
+                        文档预览
+                    </h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        原始文档内容展示
+                    </p>
+                </div>
+
+                <!-- Content - Scrollable -->
+                <div class="flex-1 overflow-y-auto overflow-x-hidden p-6" id="document-preview">
+                    {% if document.status == 'uploaded' %}
+                    <div class="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                        <div class="text-center">
+                            <i data-lucide="info" class="w-16 h-16 mx-auto mb-4"></i>
+                            <p class="text-lg mb-2">点击"开始分析"以查看文档内容和问题</p>
+                        </div>
                     </div>
-                    <div class="issue-content">
-                        <h4 class="issue-title">{{ issue.description }}</h4>
-                        <div class="issue-section">
-                            <strong>修改建议：</strong>
-                            <p>{{ issue.suggestion }}</p>
+                    {% elif document.status == 'analyzing' %}
+                    <div class="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                        <div class="text-center">
+                            <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
+                            <p class="text-lg">正在分析中，请稍候...</p>
                         </div>
-                        <div class="issue-section">
-                            <strong>原文内容：</strong>
-                            <code class="issue-original">{{ issue.original_text }}</code>
+                    </div>
+                    {% else %}
+                    <div class="prose prose-sm dark:prose-invert max-w-none">
+                        {{ html_content|safe }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Review Comments -->
+        <div class="min-h-0 h-full overflow-hidden">
+            {% if document.status == 'analyzed' and document.issues %}
+            <div class="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <!-- Header - Fixed -->
+                <div class="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-50">
+                                AI审核意见
+                            </h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                共 {{ document.issues|length }} 条评审意见
+                            </p>
                         </div>
-                        <button class="btn btn-link btn-sm" onclick="scrollToIssue({{ loop.index0 }})">
-                            <i class="fas fa-location-arrow"></i>
-                            定位到原文
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 rounded-full">
+                                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                <span class="text-xs font-medium text-red-700 dark:text-red-300">
+                                    {{ document.critical_count }} 严重
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-full">
+                                <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+                                <span class="text-xs font-medium text-orange-700 dark:text-orange-300">
+                                    {{ document.major_count }} 警告
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {% endfor %}
+
+                <!-- Comments List - Scrollable -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                    {% for issue in document.issues %}
+                    {% set styles = {
+                        'Critical': {
+                            'icon': 'alert-circle',
+                            'bg': 'bg-red-50 dark:bg-red-950/30',
+                            'border': 'border-red-200 dark:border-red-900/30',
+                            'icon_color': 'text-red-500',
+                            'title_color': 'text-red-700 dark:text-red-400',
+                            'badge_bg': 'bg-red-100 dark:bg-red-900/50',
+                            'badge_text': 'text-red-700 dark:text-red-300',
+                            'label': '严重'
+                        },
+                        'Major': {
+                            'icon': 'alert-triangle',
+                            'bg': 'bg-orange-50 dark:bg-orange-950/30',
+                            'border': 'border-orange-200 dark:border-orange-900/30',
+                            'icon_color': 'text-orange-500',
+                            'title_color': 'text-orange-700 dark:text-orange-400',
+                            'badge_bg': 'bg-orange-100 dark:bg-orange-900/50',
+                            'badge_text': 'text-orange-700 dark:text-orange-300',
+                            'label': '警告'
+                        },
+                        'Minor': {
+                            'icon': 'info',
+                            'bg': 'bg-blue-50 dark:bg-blue-950/30',
+                            'border': 'border-blue-200 dark:border-blue-900/30',
+                            'icon_color': 'text-blue-500',
+                            'title_color': 'text-blue-700 dark:text-blue-400',
+                            'badge_bg': 'bg-blue-100 dark:bg-blue-900/50',
+                            'badge_text': 'text-blue-700 dark:text-blue-300',
+                            'label': '提示'
+                        }
+                    } %}
+                    {% set style = styles[issue.issue_type] %}
+                    
+                    <div class="border rounded-xl overflow-hidden transition-all duration-200 {{ style.bg }} {{ style.border }}" id="comment-{{ loop.index0 }}">
+                        <!-- Comment Header -->
+                        <button onclick="toggleComment({{ loop.index0 }})" class="w-full px-4 py-3 flex items-start gap-3 hover:opacity-80 transition-opacity">
+                            <div class="flex-shrink-0 mt-0.5 {{ style.icon_color }}">
+                                <i data-lucide="{{ style.icon }}" class="w-5 h-5"></i>
+                            </div>
+
+                            <div class="flex-1 min-w-0 text-left">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ style.badge_bg }} {{ style.badge_text }}">
+                                        {{ style.label }}
+                                    </span>
+                                    <h3 class="text-sm font-semibold flex-1 {{ style.title_color }}">
+                                        {{ issue.description[:50] }}{% if issue.description|length > 50 %}...{% endif %}
+                                    </h3>
+                                </div>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                                    {{ issue.suggestion }}
+                                </p>
+                            </div>
+
+                            <div class="flex-shrink-0 mt-1 text-gray-400 {{ style.icon_color }} comment-chevron-{{ loop.index0 }}">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </div>
+                        </button>
+
+                        <!-- Expanded Details -->
+                        <div class="comment-details-{{ loop.index0 }} hidden px-4 pb-4 pt-0">
+                            <div class="pl-8 border-l-2 border-gray-300 dark:border-gray-600 ml-2.5">
+                                <div class="mb-3">
+                                    <h4 class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                        详细说明
+                                    </h4>
+                                    <div class="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap leading-relaxed">
+                                        <p class="font-semibold mb-1">问题描述:</p>
+                                        <p class="mb-3">{{ issue.description }}</p>
+                                        <p class="font-semibold mb-1">修改建议:</p>
+                                        <p class="mb-3">{{ issue.suggestion }}</p>
+                                        <p class="font-semibold mb-1">原文内容:</p>
+                                        <code class="block px-3 py-2 bg-white dark:bg-gray-900 rounded text-xs">{{ issue.original_text }}</code>
+                                    </div>
+                                </div>
+
+                                <button onclick="scrollToIssue({{ loop.index0 }})" class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium rounded-lg transition-colors">
+                                    <span>跳转查看</span>
+                                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
             {% else %}
-            <div class="no-issues">
-                <i class="fas fa-check-circle"></i>
-                <h4>文档质量优秀</h4>
-                <p>未发现问题</p>
+            <div class="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-50">
+                        AI审核意见
+                    </h2>
+                </div>
+                <div class="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500">
+                    <div class="text-center">
+                        <i data-lucide="list" class="w-16 h-16 mx-auto mb-4"></i>
+                        <p class="text-lg">暂无分析结果</p>
+                    </div>
+                </div>
             </div>
             {% endif %}
-        {% else %}
-        <div class="issues-empty">
-            <i class="fas fa-list-alt"></i>
-            <p>暂无分析结果</p>
         </div>
-        {% endif %}
     </div>
 </div>
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-    <div class="loading-spinner">
-        <div class="spinner"></div>
-        <p id="loadingText">处理中...</p>
+<div id="loadingOverlay" class="fixed inset-0 bg-black/70 z-[90] hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p id="loadingText" class="text-gray-700 dark:text-gray-200 font-medium">处理中...</p>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// 分析文档
+// Initialize icons
+lucide.createIcons();
+
+// Toggle comment expansion
+function toggleComment(index) {
+    const details = document.querySelector(`.comment-details-${index}`);
+    const chevron = document.querySelector(`.comment-chevron-${index}`);
+    const chevronIcon = chevron.querySelector('i');
+    
+    if (details.classList.contains('hidden')) {
+        details.classList.remove('hidden');
+        chevronIcon.setAttribute('data-lucide', 'chevron-down');
+    } else {
+        details.classList.add('hidden');
+        chevronIcon.setAttribute('data-lucide', 'chevron-right');
+    }
+    
+    lucide.createIcons();
+}
+
+// Scroll to issue in preview
+function scrollToIssue(issueIndex) {
+    const previewContent = document.getElementById('document-preview');
+    const targetElement = document.querySelector(`#issue-${issueIndex}`);
+    
+    if (targetElement && previewContent) {
+        // Get positions
+        const containerRect = previewContent.getBoundingClientRect();
+        const targetRect = targetElement.getBoundingClientRect();
+        
+        // Calculate scroll position
+        const scrollTop = previewContent.scrollTop + (targetRect.top - containerRect.top) - (containerRect.height / 2) + (targetRect.height / 2);
+        
+        // Smooth scroll
+        previewContent.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+        });
+        
+        // Highlight animation
+        targetElement.style.animation = 'pulse 1s ease-in-out';
+        setTimeout(() => {
+            targetElement.style.animation = '';
+        }, 1000);
+    }
+}
+
+// Analyze document
 async function analyzeDocument(docId) {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
-    loadingOverlay.style.display = 'flex';
+    loadingOverlay.classList.remove('hidden');
+    loadingOverlay.classList.add('flex');
     loadingText.textContent = 'AI 正在分析文档...';
     
     try {
@@ -179,15 +309,17 @@ async function analyzeDocument(docId) {
     } catch (error) {
         showToast('分析失败: ' + error.message, 'error');
     } finally {
-        loadingOverlay.style.display = 'none';
+        loadingOverlay.classList.add('hidden');
+        loadingOverlay.classList.remove('flex');
     }
 }
 
-// 下载文档
+// Download document
 async function downloadDocument(docId) {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
-    loadingOverlay.style.display = 'flex';
+    loadingOverlay.classList.remove('hidden');
+    loadingOverlay.classList.add('flex');
     loadingText.textContent = '正在生成审核报告...';
     
     try {
@@ -197,39 +329,37 @@ async function downloadDocument(docId) {
         showToast('下载失败: ' + error.message, 'error');
     } finally {
         setTimeout(() => {
-            loadingOverlay.style.display = 'none';
+            loadingOverlay.classList.add('hidden');
+            loadingOverlay.classList.remove('flex');
         }, 1000);
     }
 }
 
-// 滚动到问题位置
-function scrollToIssue(issueIndex) {
-    const previewContent = document.querySelector('.preview-content');
-    const targetElement = document.querySelector(`#issue-${issueIndex}`);
-    
-    if (targetElement && previewContent) {
-        // 获取目标元素相对于预览容器的位置
-        const containerRect = previewContent.getBoundingClientRect();
-        const targetRect = targetElement.getBoundingClientRect();
-        
-        // 计算滚动位置
-        const scrollTop = previewContent.scrollTop + (targetRect.top - containerRect.top) - (containerRect.height / 2) + (targetRect.height / 2);
-        
-        // 平滑滚动
-        previewContent.scrollTo({
-            top: scrollTop,
-            behavior: 'smooth'
-        });
-        
-        // 添加高亮动画
-        targetElement.style.animation = 'highlight-pulse 1s ease-in-out';
-        setTimeout(() => {
-            targetElement.style.animation = '';
-        }, 1000);
-    } else {
-        console.log('未找到目标元素:', `#issue-${issueIndex}`);
-    }
-}
+// Auto-expand critical issues
+document.addEventListener('DOMContentLoaded', function() {
+    {% for issue in document.issues %}
+    {% if issue.issue_type == 'Critical' %}
+    toggleComment({{ loop.index0 }});
+    {% endif %}
+    {% endfor %}
+});
 </script>
-{% endblock %}
 
+<style>
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+    50% {
+        box-shadow: 0 0 20px 10px rgba(239, 68, 68, 0.4);
+    }
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
+{% endblock %}

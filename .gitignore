@@ -21,6 +21,8 @@ ENV/
 
 # Temporary Files
 temp_images/
+temp_database/
+temp_docs/
 *.tmp
 *.log
 mock_analysis_result.json

@@ -1,165 +1,275 @@
 {% extends "base.html" %}
 
-{% block title %}Documents - 明捷医药报告审核Demo{% endblock %}
+{% block title %}工作台 - 明捷医药报告审核Demo{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <div class="page-title-section">
-        <h2 class="page-title">所有文档</h2>
-        <span class="page-subtitle">{{ documents|length }} 个文档</span>
+<!-- Top Bar -->
+<div class="flex items-center justify-between gap-4 mb-6">
+    <div class="flex items-center gap-3">
+        <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <i data-lucide="menu" class="w-6 h-6 text-gray-700 dark:text-gray-300"></i>
+        </button>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-50">
+            工作台
+        </h1>
     </div>
-    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-        <i class="fas fa-upload"></i>
-        上传文档
-    </button>
-    <input type="file" id="fileInput" accept=".docx" style="display: none;" onchange="handleFileUpload(event)">
+
+    <div class="flex items-center gap-3">
+        <!-- Search -->
+        <div class="hidden sm:flex relative">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+            <input
+                type="text"
+                placeholder="搜索..."
+                class="w-64 h-10 pl-9 pr-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30 transition-colors"
+            />
+        </div>
+
+        <!-- New Document Button -->
+        <button onclick="document.getElementById('fileInput').click()" class="hidden sm:flex items-center gap-2 h-10 px-6 bg-primary-600 hover:bg-primary-700 text-white rounded-full text-sm font-medium transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>新建审核任务</span>
+        </button>
+        <input type="file" id="fileInput" accept=".docx" style="display: none;" onchange="handleFileUpload(event)">
+
+        <!-- User -->
+        <button class="flex items-center gap-2 p-1 pr-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <div class="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
+                <i data-lucide="user-circle" class="w-5 h-5 text-white"></i>
+            </div>
+            <span class="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-200">
+                Admin
+            </span>
+        </button>
+    </div>
 </div>
 
-<!-- 统计卡片 -->
+<!-- Page Title & Total Count -->
+<div class="mb-6">
+    <p class="text-sm text-gray-500 dark:text-gray-400">
+        共 <span class="font-semibold text-gray-900 dark:text-gray-50">{{ documents|length }}</span> 份检测报告
+    </p>
+</div>
+
+<!-- Stats Row -->
 {% set critical_count = documents|selectattr('status', 'equalto', 'analyzed')|selectattr('critical_count', 'gt', 0)|list|length %}
 {% set major_count = documents|selectattr('status', 'equalto', 'analyzed')|selectattr('major_count', 'gt', 0)|list|length %}
 {% set analyzed_count = documents|selectattr('status', 'equalto', 'analyzed')|list|length %}
 {% set total_count = documents|length %}
 
-<div class="stats-overview">
-    <div class="stat-card stat-critical">
-        <div class="stat-number">{{ critical_count }}</div>
-        <div class="stat-label">高风险</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 w-full">
+    <!-- High Risk -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:border-red-900/30 dark:text-red-400">
+        <span class="text-3xl font-bold mb-1">{{ critical_count }}</span>
+        <span class="text-xs font-medium uppercase tracking-wide">高风险</span>
     </div>
-    <div class="stat-card stat-major">
-        <div class="stat-number">{{ major_count }}</div>
-        <div class="stat-label">中风险</div>
+    
+    <!-- Medium Risk -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/30 dark:text-orange-400">
+        <span class="text-3xl font-bold mb-1">{{ major_count }}</span>
+        <span class="text-xs font-medium uppercase tracking-wide">中风险</span>
     </div>
-    <div class="stat-card stat-safe">
-        <div class="stat-number">{{ analyzed_count - critical_count - major_count }}</div>
-        <div class="stat-label">低风险</div>
+    
+    <!-- Low Risk -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30 dark:border-green-900/30 dark:text-green-400">
+        <span class="text-3xl font-bold mb-1">{{ analyzed_count - critical_count - major_count }}</span>
+        <span class="text-xs font-medium uppercase tracking-wide">低风险</span>
     </div>
-    <div class="stat-card stat-approved">
-        <div class="stat-number">{{ analyzed_count }}</div>
-        <div class="stat-label">已审核</div>
+    
+    <!-- Approved -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/30 dark:text-blue-400">
+        <span class="text-3xl font-bold mb-1">{{ analyzed_count }}</span>
+        <span class="text-xs font-medium uppercase tracking-wide">已通过</span>
     </div>
-    <div class="stat-card stat-pending">
-        <div class="stat-number">{{ total_count - analyzed_count }}</div>
-        <div class="stat-label">待审核</div>
+    
+    <!-- Pending -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+        <span class="text-3xl font-bold mb-1">{{ total_count - analyzed_count }}</span>
+        <span class="text-xs font-medium uppercase tracking-wide">待审核</span>
     </div>
 </div>
 
-<!-- 文档列表 -->
-{% if documents %}
-<div class="documents-grid">
+<!-- Filter Tabs -->
+<div class="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide w-full">
+    <button onclick="filterDocuments('all')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-primary-500 text-white" data-filter="all">
+        全部
+    </button>
+    <button onclick="filterDocuments('high')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="high">
+        高风险
+    </button>
+    <button onclick="filterDocuments('medium')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="medium">
+        中风险
+    </button>
+    <button onclick="filterDocuments('low')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="low">
+        低风险
+    </button>
+    <button onclick="filterDocuments('approved')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="approved">
+        已通过
+    </button>
+    <button onclick="filterDocuments('pending')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="pending">
+        待审核
+    </button>
+</div>
+
+<!-- Document Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full" id="document-grid">
     {% for doc in documents %}
-    <div class="document-card" onclick="window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'">
-        <div class="document-header">
-            <div class="document-type-badge">
-                {% if doc.status == 'analyzed' %}
-                    {% if doc.critical_count > 0 %}
-                        <span class="badge badge-critical">高风险</span>
-                    {% elif doc.major_count > 0 %}
-                        <span class="badge badge-major">中风险</span>
-                    {% else %}
-                        <span class="badge badge-safe">低风险</span>
-                    {% endif %}
-                {% elif doc.status == 'analyzing' %}
-                    <span class="badge badge-analyzing">分析中</span>
-                {% else %}
-                    <span class="badge badge-pending">待审核</span>
-                {% endif %}
-            </div>
-            <button class="btn-icon" onclick="event.stopPropagation(); deleteDocument('{{ doc.id }}')">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-        
-        <div class="document-info">
-            <i class="fas fa-file-word document-icon"></i>
-            <div class="document-name" title="{{ doc.original_filename }}">
-                {{ doc.original_filename }}
-            </div>
-        </div>
-        
-        {% if doc.status == 'analyzed' %}
-        <div class="document-score">
-            <div class="score-circle">
-                <svg width="80" height="80">
-                    <circle cx="40" cy="40" r="35" fill="none" stroke="#e5e7eb" stroke-width="6"/>
-                    <circle cx="40" cy="40" r="35" fill="none" 
-                            stroke="{% if doc.quality_score >= 80 %}#66D9A6{% elif doc.quality_score >= 60 %}#FF9F66{% else %}#FF6B6B{% endif %}" 
-                            stroke-width="6"
-                            stroke-dasharray="{{ (doc.quality_score / 100 * 220)|round }}, 220"
-                            transform="rotate(-90 40 40)"/>
-                </svg>
-                <div class="score-text">
-                    <span class="score-value">{{ doc.quality_score }}</span>
-                    <span class="score-label">评分</span>
+    {% set risk_level = 'pending' %}
+    {% if doc.status == 'analyzed' %}
+        {% if doc.critical_count > 0 %}
+            {% set risk_level = 'high' %}
+        {% elif doc.major_count > 0 %}
+            {% set risk_level = 'medium' %}
+        {% else %}
+            {% set risk_level = 'low' %}
+        {% endif %}
+        {% if doc.quality_score >= 90 %}
+            {% set risk_level = 'approved' %}
+        {% endif %}
+    {% endif %}
+    
+    <div class="document-card flex flex-col p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 dark:border-gray-700 gap-3 transition-all duration-200 cursor-pointer" 
+         onclick="window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'"
+         data-risk="{{ risk_level }}">
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+                <div class="flex-shrink-0 w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-primary-600 dark:text-primary-400"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                        {{ doc.original_filename }}
+                    </p>
                 </div>
             </div>
+            <span class="flex-shrink-0 inline-flex items-center px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-lg">
+                报告
+            </span>
         </div>
-        
-        <div class="document-summary">
-            <div class="summary-box summary-critical">
-                <span class="summary-label">严重</span>
-                <span class="summary-value">{{ doc.critical_count }}</span>
+
+        <!-- AI Score -->
+        {% if doc.status == 'analyzed' %}
+        <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 px-2 py-1 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                <span class="text-xs font-medium text-primary-700 dark:text-primary-300">
+                    IA {{ doc.quality_score }}%
+                </span>
             </div>
-            <div class="summary-box summary-major">
-                <span class="summary-label">主要</span>
-                <span class="summary-value">{{ doc.major_count }}</span>
-            </div>
-            <div class="summary-box summary-minor">
-                <span class="summary-label">次要</span>
-                <span class="summary-value">{{ doc.minor_count }}</span>
-            </div>
-        </div>
-        
-        <div class="document-footer">
-            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'">
-                <i class="fas fa-eye"></i>
-                查看详情
-            </button>
-        </div>
-        {% else %}
-        <div class="document-actions">
-            <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); analyzeDocument('{{ doc.id }}')">
-                <i class="fas fa-search"></i>
-                开始分析
-            </button>
         </div>
         {% endif %}
-        
-        <div class="document-meta">
-            <span><i class="far fa-clock"></i> {{ doc.created_at[:10] }}</span>
+
+        <!-- Risk Box -->
+        {% if doc.status == 'analyzed' %}
+        <div class="p-3 rounded-lg border
+            {% if doc.critical_count > 0 %}bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/30
+            {% elif doc.major_count > 0 %}bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/30
+            {% else %}bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900/30
+            {% endif %}">
+            <p class="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500 dark:text-gray-400">
+                风险摘要
+            </p>
+            <p class="text-sm
+                {% if doc.critical_count > 0 %}text-red-700 dark:text-red-300
+                {% elif doc.major_count > 0 %}text-orange-700 dark:text-orange-300
+                {% else %}text-green-700 dark:text-green-300
+                {% endif %}">
+                {% if doc.critical_count > 0 %}发现 {{ doc.critical_count }} 个严重问题
+                {% elif doc.major_count > 0 %}发现 {{ doc.major_count }} 个主要问题
+                {% elif doc.minor_count > 0 %}发现 {{ doc.minor_count }} 个次要问题
+                {% else %}未发现问题
+                {% endif %}
+            </p>
         </div>
+        {% else %}
+        <div class="p-3 rounded-lg border bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <p class="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500 dark:text-gray-400">
+                状态
+            </p>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                {% if doc.status == 'analyzing' %}正在分析中...{% else %}等待分析{% endif %}
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Action Button -->
+        <button class="w-full h-10 rounded-lg text-sm font-medium transition-colors
+            {% if doc.status == 'analyzed' and doc.quality_score >= 90 %}bg-primary-500 text-white hover:bg-primary-600
+            {% else %}border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700
+            {% endif %}"
+            onclick="event.stopPropagation(); {% if doc.status == 'analyzed' %}window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'{% else %}analyzeDocument('{{ doc.id }}'){% endif %}">
+            {% if doc.status == 'analyzed' %}查看详情{% else %}立即审核{% endif %}
+        </button>
     </div>
     {% endfor %}
 </div>
-{% else %}
-<div class="empty-state">
-    <i class="fas fa-folder-open empty-icon"></i>
-    <h3>暂无文档</h3>
-    <p>上传您的第一个报告文档开始审核</p>
-    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-        <i class="fas fa-upload"></i>
-        上传文档
+
+<!-- Empty State -->
+{% if not documents %}
+<div class="flex flex-col items-center justify-center py-16 px-4">
+    <div class="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+        <p class="text-3xl">📄</p>
+    </div>
+    <p class="text-lg font-medium text-gray-900 dark:text-gray-50 mb-2">
+        未找到相关报告
+    </p>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        上传您的第一个报告文档开始审核
+    </p>
+    <button onclick="document.getElementById('fileInput').click()" class="flex items-center gap-2 h-10 px-6 bg-primary-600 hover:bg-primary-700 text-white rounded-full text-sm font-medium transition-colors">
+        <i data-lucide="upload" class="w-4 h-4"></i>
+        <span>上传文档</span>
     </button>
 </div>
 {% endif %}
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-    <div class="loading-spinner">
-        <div class="spinner"></div>
-        <p id="loadingText">处理中...</p>
+<div id="loadingOverlay" class="fixed inset-0 bg-black/70 z-[90] hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p id="loadingText" class="text-gray-700 dark:text-gray-200 font-medium">处理中...</p>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// 上传文档
+// Initialize icons
+lucide.createIcons();
+
+// Filter documents
+function filterDocuments(filter) {
+    const cards = document.querySelectorAll('.document-card');
+    const tabs = document.querySelectorAll('.filter-tab');
+    
+    // Update active tab
+    tabs.forEach(tab => {
+        if (tab.dataset.filter === filter) {
+            tab.className = 'filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-primary-500 text-white hover:bg-primary-600 dark:hover:bg-primary-400';
+        } else {
+            tab.className = 'filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800';
+        }
+    });
+    
+    // Filter cards
+    cards.forEach(card => {
+        if (filter === 'all' || card.dataset.risk === filter) {
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+// Upload file
 async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
-    loadingOverlay.style.display = 'flex';
+    loadingOverlay.classList.remove('hidden');
+    loadingOverlay.classList.add('flex');
     loadingText.textContent = '正在上传文档...';
     
     const formData = new FormData();
@@ -182,16 +292,18 @@ async function handleFileUpload(event) {
     } catch (error) {
         showToast('上传失败: ' + error.message, 'error');
     } finally {
-        loadingOverlay.style.display = 'none';
+        loadingOverlay.classList.add('hidden');
+        loadingOverlay.classList.remove('flex');
         event.target.value = '';
     }
 }
 
-// 分析文档
+// Analyze document
 async function analyzeDocument(docId) {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
-    loadingOverlay.style.display = 'flex';
+    loadingOverlay.classList.remove('hidden');
+    loadingOverlay.classList.add('flex');
     loadingText.textContent = 'AI 正在分析文档...';
     
     try {
@@ -214,31 +326,9 @@ async function analyzeDocument(docId) {
     } catch (error) {
         showToast('分析失败: ' + error.message, 'error');
     } finally {
-        loadingOverlay.style.display = 'none';
-    }
-}
-
-// 删除文档
-async function deleteDocument(docId) {
-    if (!confirm('确定要删除这个文档吗？')) return;
-    
-    try {
-        const response = await fetch(`/api/documents/${docId}`, {
-            method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('删除成功！', 'success');
-            setTimeout(() => location.reload(), 500);
-        } else {
-            showToast(data.error || '删除失败', 'error');
-        }
-    } catch (error) {
-        showToast('删除失败: ' + error.message, 'error');
+        loadingOverlay.classList.add('hidden');
+        loadingOverlay.classList.remove('flex');
     }
 }
 </script>
 {% endblock %}
-

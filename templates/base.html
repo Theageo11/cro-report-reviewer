@@ -4,103 +4,207 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}明捷医药报告审核Demo{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles_new.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0369a1',
+                            600: '#075985',
+                            700: '#0c4a6e',
+                            800: '#0c4a6e',
+                            900: '#0c4a6e',
+                        },
+                        secondary: {
+                            100: '#ccfbf1',
+                            200: '#99f6e4',
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @layer utilities {
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+    
     {% block extra_css %}{% endblock %}
 </head>
-<body>
-    <!-- 侧边栏 -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h1 class="logo">
-                <span class="logo-main">明捷医药</span>
-                <span class="logo-sub">报告审核Demo</span>
-            </h1>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %} disabled">
-                <i class="fas fa-chart-line"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="{{ url_for('documents') }}" class="nav-item {% if request.endpoint in ['documents', 'document_detail'] %}active{% endif %}">
-                <i class="fas fa-file-alt"></i>
-                <span>Documents</span>
-            </a>
-            <a href="{{ url_for('knowledge_base') }}" class="nav-item {% if request.endpoint == 'knowledge_base' %}active{% endif %} disabled">
-                <i class="fas fa-book"></i>
-                <span>Knowledge Base</span>
-            </a>
-        </nav>
-        
-        <div class="sidebar-footer">
-            <a href="{{ url_for('settings') }}" class="nav-item {% if request.endpoint == 'settings' %}active{% endif %} disabled">
-                <i class="fas fa-cog"></i>
-                <span>Settings</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- 主内容区域 -->
-    <div class="main-wrapper">
-        <!-- 顶部栏 -->
-        <header class="topbar">
-            <div class="search-bar">
-                <i class="fas fa-search"></i>
-                <input type="text" placeholder="搜索文档..." disabled>
-            </div>
-            <div class="user-area">
-                <button class="notification-btn">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge">3</span>
+<body class="bg-gray-50 dark:bg-gray-950 transition-colors">
+    <div class="min-h-screen flex flex-col lg:flex-row w-full">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed lg:sticky lg:top-4 inset-y-0 lg:inset-y-4 left-0 z-50 w-64 h-screen lg:h-[calc(100vh-2rem)] bg-white dark:bg-gray-900 rounded-2xl shadow-xl transform -translate-x-full lg:translate-x-0 transition-transform duration-300 flex flex-col">
+            <!-- Header -->
+            <div class="relative">
+                <!-- Mobile close button -->
+                <button onclick="toggleSidebar()" class="lg:hidden absolute top-3 right-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors z-20">
+                    <i data-lucide="x" class="w-5 h-5 text-gray-600 dark:text-gray-400"></i>
                 </button>
-                <div class="user-profile">
-                    <img src="https://ui-avatars.com/api/?name=Admin&background=00BFA6&color=fff" alt="User">
-                    <div class="user-info">
-                        <span class="user-name">Admin</span>
-                        <span class="user-role">管理员</span>
+                
+                <!-- Logo -->
+                <div class="flex items-center gap-2 px-4 pt-6 pb-4">
+                    <div class="w-9 h-9 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-lg flex-shrink-0">
+                        M
                     </div>
-                    <i class="fas fa-chevron-down"></i>
+                    <div class="flex flex-col">
+                        <span class="text-lg font-bold text-gray-900 dark:text-gray-50 leading-tight">
+                            明捷医药
+                        </span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                            MStone Pharma
+                        </span>
+                    </div>
                 </div>
             </div>
-        </header>
-
-        <!-- 页面内容 -->
-        <main class="content">
-            {% block content %}{% endblock %}
+            
+            <!-- Navigation -->
+            <nav class="flex-1 space-y-2 mb-6 px-2">
+                <a href="{{ url_for('documents') }}" class="w-full flex items-center h-10 gap-3 px-4 rounded-full text-sm font-medium transition-all duration-200 {% if request.endpoint in ['documents', 'document_detail'] %}bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400{% else %}text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>工作台</span>
+                    {% if request.endpoint in ['documents', 'document_detail'] %}
+                    <i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('quality') }}" class="w-full flex items-center h-10 gap-3 px-4 rounded-full text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>质量研究</span>
+                </a>
+                <a href="{{ url_for('analysis') }}" class="w-full flex items-center h-10 gap-3 px-4 rounded-full text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span>数据分析</span>
+                </a>
+                <a href="{{ url_for('reports') }}" class="w-full flex items-center h-10 gap-3 px-4 rounded-full text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                    <span>检测报告</span>
+                </a>
+            </nav>
+            
+            <!-- Risk Status Summary Widget -->
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-4 mx-2">
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
+                    风险概览
+                </h3>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                            <span class="text-gray-700 dark:text-gray-200">高风险</span>
+                        </div>
+                        <span class="font-medium text-gray-900 dark:text-gray-50">{{ risk_stats.high if risk_stats else 0 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+                            <span class="text-gray-700 dark:text-gray-200">中风险</span>
+                        </div>
+                        <span class="font-medium text-gray-900 dark:text-gray-50">{{ risk_stats.medium if risk_stats else 0 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span class="text-gray-700 dark:text-gray-200">低风险</span>
+                        </div>
+                        <span class="font-medium text-gray-900 dark:text-gray-50">{{ risk_stats.low if risk_stats else 0 }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings -->
+            <button class="flex items-center h-10 gap-3 px-4 mx-2 mb-4 rounded-full text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+                <span>设置</span>
+            </button>
+        </aside>
+        
+        <!-- Overlay for mobile -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+        
+        <!-- Main Content -->
+        <main class="flex-1 p-4 lg:p-6 lg:pl-2 min-w-0">
+            <div class="max-w-7xl mx-auto w-full">
+                {% block content %}{% endblock %}
+            </div>
         </main>
     </div>
-
-    <!-- Toast 通知 -->
-    <div id="toast-container"></div>
-
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-3"></div>
+    
     <script>
-        // Toast 通知函数
+        // Initialize Lucide icons
+        lucide.createIcons();
+        
+        // Sidebar toggle for mobile
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+        
+        // Toast notification function
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
             
-            const icon = type === 'success' ? 'fa-check-circle' : 
-                        type === 'error' ? 'fa-exclamation-circle' : 
-                        'fa-info-circle';
+            const colors = {
+                success: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-900/30 dark:text-green-300',
+                error: 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-900/30 dark:text-red-300',
+                info: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/30 dark:border-blue-900/30 dark:text-blue-300'
+            };
             
+            const icons = {
+                success: 'check-circle',
+                error: 'alert-circle',
+                info: 'info'
+            };
+            
+            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg transition-all duration-300 transform translate-x-0 ${colors[type]}`;
             toast.innerHTML = `
-                <i class="fas ${icon}"></i>
-                <span>${message}</span>
+                <i data-lucide="${icons[type]}" class="w-5 h-5 flex-shrink-0"></i>
+                <span class="text-sm font-medium">${message}</span>
             `;
             
             container.appendChild(toast);
+            lucide.createIcons();
             
-            setTimeout(() => toast.classList.add('show'), 10);
             setTimeout(() => {
-                toast.classList.remove('show');
+                toast.style.transform = 'translateX(400px)';
+                toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
     </script>
-
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-

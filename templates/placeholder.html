@@ -3,16 +3,23 @@
 {% block title %}{{ page_name }} - 明捷医药报告审核Demo{% endblock %}
 
 {% block content %}
-<div class="placeholder-page">
-    <div class="placeholder-content">
-        <i class="fas fa-tools placeholder-icon"></i>
-        <h2>{{ page_name }}</h2>
-        <p>此功能正在开发中...</p>
-        <a href="{{ url_for('documents') }}" class="btn btn-primary">
-            <i class="fas fa-arrow-left"></i>
-            返回 Documents
+<div class="flex items-center justify-center min-h-[60vh]">
+    <div class="text-center p-12 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+        <i data-lucide="tool" class="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-6"></i>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-50 mb-3">
+            {{ page_name }}
+        </h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">
+            此功能正在开发中...
+        </p>
+        <a href="{{ url_for('documents') }}" class="inline-flex items-center gap-2 px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-medium transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>返回工作台</span>
         </a>
     </div>
 </div>
-{% endblock %}
 
+<script>
+lucide.createIcons();
+</script>
+{% endblock %}
