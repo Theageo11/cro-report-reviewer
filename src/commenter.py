@@ -4,6 +4,9 @@ from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from datetime import datetime
 from lxml import etree
+from docx.oxml.text.paragraph import CT_P
+from docx.oxml.table import CT_Tbl
+from docx.text.paragraph import Paragraph
 
 def get_or_create_comments_part(doc):
     """
@@ -32,9 +35,10 @@ def get_or_create_comments_part(doc):
     main_doc_part.relate_to(comments_part, rel_type)
     return comments_part, parse_xml(comments_xml_str)
 
-def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
+def add_native_comment(doc, element_id, text, original_text=None, author='Agent', initials='AG'):
     """
-    Add a native Word comment to a paragraph or table cell.
+    Add a native Word comment to a paragraph, table cell, or image run.
+    Prioritizes original_text for positioning.
     """
     comments_part, comments_xml = get_or_create_comments_part(doc)
     
@@ -48,9 +52,15 @@ def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
     
     cp = OxmlElement('w:p')
     cr = OxmlElement('w:r')
-    ct = OxmlElement('w:t')
-    ct.text = text
-    cr.append(ct)
+    # Handle multi-line text in comments
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        ct = OxmlElement('w:t')
+        ct.text = line
+        cr.append(ct)
+        if i < len(lines) - 1:
+            cr.append(OxmlElement('w:br'))
+            
     cp.append(cr)
     comment.append(cp)
     comments_xml.append(comment)
@@ -59,58 +69,99 @@ def add_native_comment(doc, element_id, text, author='Agent', initials='AG'):
     comments_part._blob = etree.tostring(comments_xml, encoding='utf-8', xml_declaration=False)
 
     # 2. Find the target element
-    target_element = None
-    curr_id = 0
-    from docx.oxml.text.paragraph import CT_P
-    from docx.oxml.table import CT_Tbl
+    target_node = None
     
-    for el in doc.element.body:
-        if isinstance(el, CT_P):
-            # Match parser.py logic EXACTLY
-            # 1. Check for images
-            if 'drawing' in etree.tostring(el, encoding='unicode'):
-                if curr_id == element_id:
-                    target_element = el
-                    break
-                curr_id += 1
-            
-            # 2. Check for text (using the same helper logic)
-            ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-            text_nodes = el.findall('.//w:t', ns)
-            text = ''.join([node.text for node in text_nodes if node.text]).strip()
-            
-            if text:
-                if curr_id == element_id:
-                    target_element = el
-                    break
-                curr_id += 1
-        elif isinstance(el, CT_Tbl):
-            if curr_id == element_id:
-                target_element = el
-                break
-            curr_id += 1
-            
-    if target_element is not None:
-        if isinstance(target_element, CT_Tbl):
-            try:
-                target_element = target_element.xpath('.//w:p')[0]
-            except IndexError:
-                return
+    def get_text(el):
+        ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+        text_nodes = el.findall('.//w:t', ns)
+        return ''.join([node.text for node in text_nodes if node.text])
 
+    # Strategy A: Search by original_text (more accurate for user)
+    if original_text and original_text.strip():
+        search_text = original_text.strip()
+        for el in doc.element.body:
+            if isinstance(el, (CT_P, CT_Tbl)):
+                el_text = get_text(el)
+                if search_text in el_text:
+                    if isinstance(el, CT_P):
+                        target_node = el
+                    else:
+                        # For tables, find the paragraph containing the text
+                        ps = el.xpath('.//w:p')
+                        for p in ps:
+                            if search_text in get_text(p):
+                                target_node = p
+                                break
+                        if not target_node and ps:
+                            target_node = ps[0]
+                    if target_node is not None:
+                        break
+
+    # Strategy B: Fallback to element_id if Strategy A failed
+    if target_node is None:
+        curr_id = 0
+        for el in doc.element.body:
+            if isinstance(el, CT_P):
+                p = Paragraph(el, doc)
+                found_in_p = False
+                for run in p.runs:
+                    if 'drawing' in run.element.xml:
+                        if curr_id == element_id:
+                            target_node = run.element
+                            found_in_p = True
+                            break
+                        curr_id += 1
+                if found_in_p: break
+                
+                p_text = get_text(el).strip()
+                if p_text:
+                    if curr_id == element_id:
+                        target_node = el
+                        break
+                    curr_id += 1
+            elif isinstance(el, CT_Tbl):
+                if curr_id == element_id:
+                    paragraphs = el.xpath('.//w:p')
+                    target_node = paragraphs[0] if paragraphs else el
+                    break
+                curr_id += 1
+            
+    if target_node is not None:
         # 3. Insert comment references
-        comment_range_start = OxmlElement('w:commentRangeStart')
-        comment_range_start.set(qn('w:id'), comment_id)
-        target_element.insert(0, comment_range_start)
+        if isinstance(target_node, CT_P):
+            # Inside paragraph
+            comment_range_start = OxmlElement('w:commentRangeStart')
+            comment_range_start.set(qn('w:id'), comment_id)
+            pPr = target_node.find(qn('w:pPr'))
+            if pPr is not None:
+                pPr.addnext(comment_range_start)
+            else:
+                target_node.insert(0, comment_range_start)
+            
+            comment_range_end = OxmlElement('w:commentRangeEnd')
+            comment_range_end.set(qn('w:id'), comment_id)
+            target_node.append(comment_range_end)
+            
+            r_ref = OxmlElement('w:r')
+            comment_ref = OxmlElement('w:commentReference')
+            comment_ref.set(qn('w:id'), comment_id)
+            r_ref.append(comment_ref)
+            target_node.append(r_ref)
+        else:
+            # It's a run (for image) or a table (fallback)
+            comment_range_start = OxmlElement('w:commentRangeStart')
+            comment_range_start.set(qn('w:id'), comment_id)
+            target_node.addprevious(comment_range_start)
 
-        comment_range_end = OxmlElement('w:commentRangeEnd')
-        comment_range_end.set(qn('w:id'), comment_id)
-        target_element.append(comment_range_end)
+            comment_range_end = OxmlElement('w:commentRangeEnd')
+            comment_range_end.set(qn('w:id'), comment_id)
+            target_node.addnext(comment_range_end)
 
-        r_ref = OxmlElement('w:r')
-        comment_ref = OxmlElement('w:commentReference')
-        comment_ref.set(qn('w:id'), comment_id)
-        r_ref.append(comment_ref)
-        target_element.append(r_ref)
+            r_ref = OxmlElement('w:r')
+            comment_ref = OxmlElement('w:commentReference')
+            comment_ref.set(qn('w:id'), comment_id)
+            r_ref.append(comment_ref)
+            comment_range_end.addnext(r_ref)
 
 def generate_commented_docx(original_path, output_path, selected_issues):
     """
@@ -120,9 +171,15 @@ def generate_commented_docx(original_path, output_path, selected_issues):
     
     for issue in selected_issues:
         try:
-            eid = int(issue['element_id'])
-            text = f"[{issue['issue_type']}] {issue['description']}\n建议: {issue['suggestion']}"
-            add_native_comment(doc, eid, text)
+            eid = int(issue.get('element_id', -1))
+            original_text = issue.get('original_text', '')
+            
+            issue_type = issue.get('issue_type', 'Issue')
+            description = issue.get('description', '')
+            suggestion = issue.get('suggestion', '')
+            
+            text = f"[{issue_type}] {description}\n建议: {suggestion}"
+            add_native_comment(doc, eid, text, original_text=original_text)
         except (ValueError, KeyError):
             continue
             
