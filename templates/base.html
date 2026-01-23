@@ -163,6 +163,36 @@
         // Initialize Lucide icons
         lucide.createIcons();
         
+        // Theme toggle
+        function initTheme() {
+            // Check for saved theme preference or default to light mode
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            updateThemeIcon();
+        }
+        
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon();
+        }
+        
+        function updateThemeIcon() {
+            const themeIcon = document.getElementById('theme-icon');
+            if (themeIcon) {
+                const isDark = document.documentElement.classList.contains('dark');
+                themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+                lucide.createIcons();
+            }
+        }
+        
+        // Initialize theme on load
+        initTheme();
+        
         // Sidebar toggle for mobile
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');

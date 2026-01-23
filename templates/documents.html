@@ -32,6 +32,11 @@
         </button>
         <input type="file" id="fileInput" accept=".docx" style="display: none;" onchange="handleFileUpload(event)">
 
+        <!-- Theme Toggle -->
+        <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="切换主题">
+            <i id="theme-icon" data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-gray-400"></i>
+        </button>
+
         <!-- User -->
         <button class="flex items-center gap-2 p-1 pr-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <div class="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
