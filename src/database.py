@@ -91,7 +91,9 @@ class Database:
         critical_count = sum(1 for i in issues if i["issue_type"] == "Critical")
         major_count = sum(1 for i in issues if i["issue_type"] == "Major")
         minor_count = sum(1 for i in issues if i["issue_type"] == "Minor")
-        quality_score = max(0, 100 - (critical_count * 20 + major_count * 10 + minor_count * 5))
+        
+        # 评分机制：满分100分，严重-5分，警告-2分，提示-1分
+        quality_score = max(0, 100 - (critical_count * 5 + major_count * 2 + minor_count * 1))
         
         updates = {
             "status": "analyzed",
