@@ -233,7 +233,17 @@ def analyze_document(doc_id):
             with open("mock_analysis_result.json", "r", encoding="utf-8") as f:
                 issues = json.load(f)
         else:
-            llm_client = QwenClient()
+            # 获取当前配置
+            config_path = os.path.join(app.root_path, 'config', 'settings.json')
+            api_key = None
+            model = None
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    api_key = config.get('api_key')
+                    model = config.get('model')
+            
+            llm_client = QwenClient(api_key=api_key, model=model)
             issues = llm_client.analyze_report(doc_data['content'])
             
             # 保存 mock 结果
@@ -322,8 +332,62 @@ def reports():
 
 @app.route('/settings')
 def settings():
-    """Settings 页面（占位）"""
-    return render_template('placeholder.html', page_name='设置')
+    """Settings 页面"""
+    config_path = os.path.join(app.root_path, 'config', 'settings.json')
+    config = {'api_key': '', 'model': 'qwen-vl-max-latest'}
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+    
+    rules_path = os.path.join(app.root_path, 'config', 'review_rules.md')
+    rules = ""
+    if os.path.exists(rules_path):
+        with open(rules_path, 'r', encoding='utf-8') as f:
+            rules = f.read()
+            
+    # 计算风险统计数据（用于侧边栏）
+    docs = db.get_all_documents()
+    critical_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('critical_count', 0) > 0)
+    major_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('major_count', 0) > 0)
+    analyzed_count = sum(1 for d in docs if d.get('status') == 'analyzed')
+    low_count = analyzed_count - critical_count - major_count
+    
+    risk_stats = {
+        'high': critical_count,
+        'medium': major_count,
+        'low': low_count if low_count > 0 else 0
+    }
+    
+    return render_template('settings.html', config=config, rules=rules, risk_stats=risk_stats)
+
+
+@app.route('/api/settings', methods=['POST'])
+def save_settings():
+    """保存设置"""
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'error': '无效的数据'}), 400
+    
+    # 保存 API Key 和 Model
+    config_path = os.path.join(app.root_path, 'config', 'settings.json')
+    config = {
+        'api_key': data.get('api_key', ''),
+        'model': data.get('model', 'qwen-vl-max-latest')
+    }
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+            
+        # 保存规则
+        rules_path = os.path.join(app.root_path, 'config', 'review_rules.md')
+        rules_content = data.get('rules', '')
+        with open(rules_path, 'w', encoding='utf-8') as f:
+            f.write(rules_content)
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':

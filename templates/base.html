@@ -139,10 +139,10 @@
             </div>
             
             <!-- Settings -->
-            <button class="flex items-center h-10 gap-3 px-4 mx-2 mb-4 rounded-full text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
+            <a href="{{ url_for('settings') }}" class="flex items-center h-10 gap-3 px-4 mx-2 mb-4 rounded-full text-sm font-medium transition-all duration-200 {% if request.endpoint == 'settings' %}bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400{% else %}text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
                 <i data-lucide="settings" class="w-4 h-4"></i>
                 <span>设置</span>
-            </button>
+            </a>
         </aside>
         
         <!-- Overlay for mobile -->

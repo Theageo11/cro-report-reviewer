@@ -10,8 +10,9 @@ load_dotenv()
 dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
 
 class QwenClient:
-    def __init__(self):
-        self.model = "qwen-vl-max-latest"
+    def __init__(self, api_key: str = None, model: str = None):
+        self.api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+        self.model = model or "qwen-vl-max-latest"
 
     def analyze_report(self, content_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -87,6 +88,7 @@ class QwenClient:
         try:
             response = dashscope.MultiModalConversation.call(
                 model=self.model,
+                api_key=self.api_key,
                 messages=messages,
                 result_format='message',
                 max_tokens=2000
