@@ -7,6 +7,7 @@ from lxml import etree
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
 from docx.text.paragraph import Paragraph
+import re
 
 def get_or_create_comments_part(doc):
     """
@@ -121,11 +122,16 @@ def add_native_comment(doc, element_id, text, original_text=None, author='Agent'
                 found_in_p = False
                 for run in p.runs:
                     if 'drawing' in run.element.xml:
-                        if curr_id == element_id:
-                            target_node = run.element
-                            found_in_p = True
-                            break
-                        curr_id += 1
+                        # Match parser.py logic: count each embedded image
+                        embeds = re.findall(r'r:embed="([^"]+)"', run.element.xml)
+                        for _ in embeds:
+                            if curr_id == element_id:
+                                target_node = run.element
+                                found_in_p = True
+                                break
+                            curr_id += 1
+                        if found_in_p: break
+                
                 if found_in_p: break
                 
                 p_text = get_text(el).strip()

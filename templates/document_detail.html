@@ -3,6 +3,40 @@
 {% block title %}{{ document.original_filename }} - 明捷医药报告审核Demo{% endblock %}
 
 {% block content %}
+{# Define styles for different issue types #}
+{% set styles = {
+    'Critical': {
+        'icon': 'alert-circle',
+        'bg': 'bg-red-50 dark:bg-red-950/30',
+        'border': 'border-red-200 dark:border-red-900/30',
+        'icon_color': 'text-red-500',
+        'title_color': 'text-red-700 dark:text-red-400',
+        'badge_bg': 'bg-red-100 dark:bg-red-900/50',
+        'badge_text': 'text-red-700 dark:text-red-300',
+        'label': '严重'
+    },
+    'Major': {
+        'icon': 'alert-triangle',
+        'bg': 'bg-orange-50 dark:bg-orange-950/30',
+        'border': 'border-orange-200 dark:border-orange-900/30',
+        'icon_color': 'text-orange-500',
+        'title_color': 'text-orange-700 dark:text-orange-400',
+        'badge_bg': 'bg-orange-100 dark:bg-orange-900/50',
+        'badge_text': 'text-orange-700 dark:text-orange-300',
+        'label': '警告'
+    },
+    'Minor': {
+        'icon': 'info',
+        'bg': 'bg-blue-50 dark:bg-blue-950/30',
+        'border': 'border-blue-200 dark:border-blue-900/30',
+        'icon_color': 'text-blue-500',
+        'title_color': 'text-blue-700 dark:text-blue-400',
+        'badge_bg': 'bg-blue-100 dark:bg-blue-900/50',
+        'badge_text': 'text-blue-700 dark:text-blue-300',
+        'label': '提示'
+    }
+} %}
+
 <div class="h-[calc(100vh-6rem)] flex flex-col">
     <!-- Top Bar - Fixed -->
     <div class="flex-shrink-0 flex items-center justify-between gap-4 mb-6">
@@ -132,41 +166,9 @@
                 <!-- Comments List - Scrollable -->
                 <div class="flex-1 overflow-y-auto p-4 space-y-3">
                     {% for issue in document.issues %}
-                    {% set styles = {
-                        'Critical': {
-                            'icon': 'alert-circle',
-                            'bg': 'bg-red-50 dark:bg-red-950/30',
-                            'border': 'border-red-200 dark:border-red-900/30',
-                            'icon_color': 'text-red-500',
-                            'title_color': 'text-red-700 dark:text-red-400',
-                            'badge_bg': 'bg-red-100 dark:bg-red-900/50',
-                            'badge_text': 'text-red-700 dark:text-red-300',
-                            'label': '严重'
-                        },
-                        'Major': {
-                            'icon': 'alert-triangle',
-                            'bg': 'bg-orange-50 dark:bg-orange-950/30',
-                            'border': 'border-orange-200 dark:border-orange-900/30',
-                            'icon_color': 'text-orange-500',
-                            'title_color': 'text-orange-700 dark:text-orange-400',
-                            'badge_bg': 'bg-orange-100 dark:bg-orange-900/50',
-                            'badge_text': 'text-orange-700 dark:text-orange-300',
-                            'label': '警告'
-                        },
-                        'Minor': {
-                            'icon': 'info',
-                            'bg': 'bg-blue-50 dark:bg-blue-950/30',
-                            'border': 'border-blue-200 dark:border-blue-900/30',
-                            'icon_color': 'text-blue-500',
-                            'title_color': 'text-blue-700 dark:text-blue-400',
-                            'badge_bg': 'bg-blue-100 dark:bg-blue-900/50',
-                            'badge_text': 'text-blue-700 dark:text-blue-300',
-                            'label': '提示'
-                        }
-                    } %}
-                    {% set style = styles[issue.issue_type] %}
+                    {% set style = styles.get(issue.issue_type, styles['Minor']) %}
                     
-                    <div class="border rounded-xl overflow-hidden transition-all duration-200 {{ style.bg }} {{ style.border }}" id="comment-{{ loop.index0 }}">
+                    <div class="border rounded-xl overflow-hidden transition-all duration-200 {{ style.bg }} {{ style.border }} {% if issue.issue_type == 'Critical' %}is-critical{% endif %}" id="comment-{{ loop.index0 }}" data-index="{{ loop.index0 }}">
                         <!-- Comment Header -->
                         <div class="flex items-start gap-0">
                             <!-- Checkbox for selection -->
@@ -407,11 +409,13 @@ async function downloadDocument(docId) {
 
 // Auto-expand critical issues
 document.addEventListener('DOMContentLoaded', function() {
-    {% for issue in document.issues %}
-    {% if issue.issue_type == 'Critical' %}
-    toggleComment({{ loop.index0 }});
-    {% endif %}
-    {% endfor %}
+    const criticalElements = document.querySelectorAll('.is-critical');
+    criticalElements.forEach(el => {
+        const index = el.getAttribute('data-index');
+        if (index !== null) {
+            toggleComment(parseInt(index));
+        }
+    });
 });
 </script>
 
