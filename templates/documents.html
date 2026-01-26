@@ -57,34 +57,38 @@
 </div>
 
 <!-- Stats Row -->
-{% set critical_count = documents|selectattr('status', 'equalto', 'analyzed')|selectattr('critical_count', 'gt', 0)|list|length %}
-{% set major_count = documents|selectattr('status', 'equalto', 'analyzed')|selectattr('major_count', 'gt', 0)|list|length %}
-{% set analyzed_count = documents|selectattr('status', 'equalto', 'analyzed')|list|length %}
+{% set analyzed_count = risk_stats.high + risk_stats.medium + risk_stats.low + risk_stats.passed %}
 {% set total_count = documents|length %}
 
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 w-full">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6 w-full">
     <!-- High Risk -->
     <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:border-red-900/30 dark:text-red-400">
-        <span class="text-3xl font-bold mb-1">{{ critical_count }}</span>
+        <span class="text-3xl font-bold mb-1">{{ risk_stats.high }}</span>
         <span class="text-xs font-medium uppercase tracking-wide">高风险</span>
     </div>
     
     <!-- Medium Risk -->
     <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/30 dark:text-orange-400">
-        <span class="text-3xl font-bold mb-1">{{ major_count }}</span>
+        <span class="text-3xl font-bold mb-1">{{ risk_stats.medium }}</span>
         <span class="text-xs font-medium uppercase tracking-wide">中风险</span>
     </div>
     
     <!-- Low Risk -->
-    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30 dark:border-green-900/30 dark:text-green-400">
-        <span class="text-3xl font-bold mb-1">{{ analyzed_count - critical_count - major_count }}</span>
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/30 dark:text-blue-400">
+        <span class="text-3xl font-bold mb-1">{{ risk_stats.low }}</span>
         <span class="text-xs font-medium uppercase tracking-wide">低风险</span>
     </div>
     
-    <!-- Approved -->
-    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/30 dark:text-blue-400">
-        <span class="text-3xl font-bold mb-1">{{ analyzed_count }}</span>
+    <!-- Passed -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30 dark:border-green-900/30 dark:text-green-400">
+        <span class="text-3xl font-bold mb-1">{{ risk_stats.passed }}</span>
         <span class="text-xs font-medium uppercase tracking-wide">已通过</span>
+    </div>
+
+    <!-- Analyzed Total -->
+    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 bg-primary-50 text-primary-600 border-primary-200 dark:bg-primary-950/30 dark:border-primary-900/30 dark:text-primary-400">
+        <span class="text-3xl font-bold mb-1">{{ analyzed_count }}</span>
+        <span class="text-xs font-medium uppercase tracking-wide">已分析</span>
     </div>
     
     <!-- Pending -->
@@ -108,7 +112,7 @@
     <button onclick="filterDocuments('low')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="low">
         低风险
     </button>
-    <button onclick="filterDocuments('approved')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="approved">
+    <button onclick="filterDocuments('passed')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="passed">
         已通过
     </button>
     <button onclick="filterDocuments('pending')" class="filter-tab flex-shrink-0 h-10 px-6 rounded-full text-sm font-medium transition-colors bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" data-filter="pending">
@@ -121,20 +125,20 @@
     {% for doc in documents %}
     {% set risk_level = 'pending' %}
     {% if doc.status == 'analyzed' %}
-        {% if doc.critical_count > 0 %}
-            {% set risk_level = 'high' %}
-        {% elif doc.major_count > 0 %}
+        {% set score = doc.quality_score|default(0) %}
+        {% if score == 100 %}
+            {% set risk_level = 'passed' %}
+        {% elif score >= 80 %}
+            {% set risk_level = 'low' %}
+        {% elif score >= 60 %}
             {% set risk_level = 'medium' %}
         {% else %}
-            {% set risk_level = 'low' %}
-        {% endif %}
-        {% if doc.quality_score >= 90 %}
-            {% set risk_level = 'approved' %}
+            {% set risk_level = 'high' %}
         {% endif %}
     {% endif %}
     
     <div class="document-card flex flex-col p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 dark:border-gray-700 gap-3 transition-all duration-200 cursor-pointer" 
-         onclick="window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'"
+         onclick="location.href='/documents/{{ doc.id }}'"
          data-risk="{{ risk_level }}">
         <!-- Header -->
         <div class="flex items-start justify-between gap-2">
@@ -187,23 +191,26 @@
 
         <!-- Risk Box -->
         {% if doc.status == 'analyzed' %}
+        {% set score = doc.quality_score|default(0) %}
         <div class="p-3 rounded-lg border
-            {% if doc.critical_count > 0 %}bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/30
-            {% elif doc.major_count > 0 %}bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/30
-            {% else %}bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900/30
+            {% if score == 100 %}bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900/30
+            {% elif score >= 80 %}bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/30
+            {% elif score >= 60 %}bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/30
+            {% else %}bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/30
             {% endif %}">
             <p class="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500 dark:text-gray-400">
                 风险摘要
             </p>
             <p class="text-sm
-                {% if doc.critical_count > 0 %}text-red-700 dark:text-red-300
-                {% elif doc.major_count > 0 %}text-orange-700 dark:text-orange-300
-                {% else %}text-green-700 dark:text-green-300
+                {% if score == 100 %}text-green-700 dark:text-green-300
+                {% elif score >= 80 %}text-blue-700 dark:text-blue-300
+                {% elif score >= 60 %}text-orange-700 dark:text-orange-300
+                {% else %}text-red-700 dark:text-red-300
                 {% endif %}">
-                {% if doc.critical_count > 0 %}发现 {{ doc.critical_count }} 个严重问题
-                {% elif doc.major_count > 0 %}发现 {{ doc.major_count }} 个主要问题
-                {% elif doc.minor_count > 0 %}发现 {{ doc.minor_count }} 个次要问题
-                {% else %}未发现问题
+                {% if score == 100 %}审核已通过
+                {% elif score >= 80 %}低风险报告
+                {% elif score >= 60 %}中风险报告
+                {% else %}高风险报告
                 {% endif %}
             </p>
         </div>
@@ -219,13 +226,18 @@
         {% endif %}
 
         <!-- Action Button -->
-        <button class="w-full h-10 rounded-lg text-sm font-medium transition-colors
-            {% if doc.status == 'analyzed' and doc.quality_score >= 90 %}bg-primary-500 text-white hover:bg-primary-600
-            {% else %}border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700
-            {% endif %}"
-            onclick="event.stopPropagation(); {% if doc.status == 'analyzed' %}window.location.href='{{ url_for('document_detail', doc_id=doc.id) }}'{% else %}analyzeDocument('{{ doc.id }}'){% endif %}">
-            {% if doc.status == 'analyzed' %}查看详情{% else %}立即审核{% endif %}
+        {% set btn_class = "bg-primary-500 text-white hover:bg-primary-600" if (doc.status == 'analyzed' and doc.quality_score >= 90) else "border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" %}
+        {% if doc.status == 'analyzed' %}
+        <button class="w-full h-10 rounded-lg text-sm font-medium transition-colors {{ btn_class }}"
+            onclick="event.stopPropagation(); location.href='/documents/{{ doc.id }}'">
+            查看详情
         </button>
+        {% else %}
+        <button class="w-full h-10 rounded-lg text-sm font-medium transition-colors {{ btn_class }}"
+            onclick="event.stopPropagation(); analyzeDocument('{{ doc.id }}')">
+            立即审核
+        </button>
+        {% endif %}
     </div>
     {% endfor %}
 </div>

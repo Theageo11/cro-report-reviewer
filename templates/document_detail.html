@@ -103,18 +103,28 @@
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 rounded-full">
-                                <div class="w-2 h-2 rounded-full bg-red-500"></div>
-                                <span class="text-xs font-medium text-red-700 dark:text-red-300">
-                                    {{ document.critical_count }} 严重
-                                </span>
+                            {% set score = document.quality_score|default(0) %}
+                            {% if score == 100 %}
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 rounded-full">
+                                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span class="text-xs font-medium text-green-700 dark:text-green-300">已通过</span>
                             </div>
+                            {% elif score >= 80 %}
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span class="text-xs font-medium text-blue-700 dark:text-blue-300">低风险</span>
+                            </div>
+                            {% elif score >= 60 %}
                             <div class="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-full">
                                 <div class="w-2 h-2 rounded-full bg-orange-500"></div>
-                                <span class="text-xs font-medium text-orange-700 dark:text-orange-300">
-                                    {{ document.major_count }} 警告
-                                </span>
+                                <span class="text-xs font-medium text-orange-700 dark:text-orange-300">中风险</span>
                             </div>
+                            {% else %}
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 rounded-full">
+                                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                <span class="text-xs font-medium text-red-700 dark:text-red-300">高风险</span>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

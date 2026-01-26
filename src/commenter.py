@@ -78,21 +78,33 @@ def add_native_comment(doc, element_id, text, original_text=None, author='Agent'
 
     # Strategy A: Search by original_text (more accurate for user)
     if original_text and original_text.strip():
-        # Clean up search text: remove extra whitespace and normalize
-        search_text = ' '.join(original_text.strip().split())
+        # Clean up search text: remove all whitespace for robust matching
+        def clean_all_ws(t):
+            return "".join(t.split())
+            
+        # Try full text first, then line by line if it's multi-line
+        search_lines = [line.strip() for line in original_text.split('\n') if line.strip()]
+        
         for el in doc.element.body:
             if isinstance(el, (CT_P, CT_Tbl)):
-                # Clean up element text for comparison
-                el_text = ' '.join(get_text(el).split())
-                if search_text in el_text:
+                el_text_raw = get_text(el)
+                el_text_clean = clean_all_ws(el_text_raw)
+                
+                found = False
+                # Try matching the first significant line of original_text
+                if search_lines:
+                    first_line_clean = clean_all_ws(search_lines[0])
+                    if len(first_line_clean) > 2 and first_line_clean in el_text_clean:
+                        found = True
+                
+                if found:
                     if isinstance(el, CT_P):
                         target_node = el
                     else:
                         # For tables, find the paragraph containing the text
                         ps = el.xpath('.//w:p')
                         for p in ps:
-                            p_text = ' '.join(get_text(p).split())
-                            if search_text in p_text:
+                            if clean_all_ws(search_lines[0]) in clean_all_ws(get_text(p)):
                                 target_node = p
                                 break
                         if not target_node and ps:

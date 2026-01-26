@@ -133,15 +133,28 @@ def documents():
     docs = db.get_all_documents()
     
     # 计算风险统计数据
-    critical_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('critical_count', 0) > 0)
-    major_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('major_count', 0) > 0)
-    analyzed_count = sum(1 for d in docs if d.get('status') == 'analyzed')
-    low_count = analyzed_count - critical_count - major_count
+    high_count = 0
+    medium_count = 0
+    low_count = 0
+    passed_count = 0
+    
+    for d in docs:
+        if d.get('status') == 'analyzed':
+            score = d.get('quality_score', 0)
+            if score == 100:
+                passed_count += 1
+            elif score >= 80:
+                low_count += 1
+            elif score >= 60:
+                medium_count += 1
+            else:
+                high_count += 1
     
     risk_stats = {
-        'high': critical_count,
-        'medium': major_count,
-        'low': low_count if low_count > 0 else 0
+        'high': high_count,
+        'medium': medium_count,
+        'low': low_count,
+        'passed': passed_count
     }
     
     return render_template('documents.html', documents=docs, risk_stats=risk_stats)
@@ -167,15 +180,28 @@ def document_detail(doc_id):
     
     # 计算风险统计数据（用于侧边栏）
     docs = db.get_all_documents()
-    critical_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('critical_count', 0) > 0)
-    major_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('major_count', 0) > 0)
-    analyzed_count = sum(1 for d in docs if d.get('status') == 'analyzed')
-    low_count = analyzed_count - critical_count - major_count
+    high_count = 0
+    medium_count = 0
+    low_count = 0
+    passed_count = 0
+    
+    for d in docs:
+        if d.get('status') == 'analyzed':
+            score = d.get('quality_score', 0)
+            if score == 100:
+                passed_count += 1
+            elif score >= 80:
+                low_count += 1
+            elif score >= 60:
+                medium_count += 1
+            else:
+                high_count += 1
     
     risk_stats = {
-        'high': critical_count,
-        'medium': major_count,
-        'low': low_count if low_count > 0 else 0
+        'high': high_count,
+        'medium': medium_count,
+        'low': low_count,
+        'passed': passed_count
     }
     
     return render_template('document_detail.html', document=doc, html_content=html_content, risk_stats=risk_stats)
@@ -347,15 +373,28 @@ def settings():
             
     # 计算风险统计数据（用于侧边栏）
     docs = db.get_all_documents()
-    critical_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('critical_count', 0) > 0)
-    major_count = sum(1 for d in docs if d.get('status') == 'analyzed' and d.get('major_count', 0) > 0)
-    analyzed_count = sum(1 for d in docs if d.get('status') == 'analyzed')
-    low_count = analyzed_count - critical_count - major_count
+    high_count = 0
+    medium_count = 0
+    low_count = 0
+    passed_count = 0
+    
+    for d in docs:
+        if d.get('status') == 'analyzed':
+            score = d.get('quality_score', 0)
+            if score == 100:
+                passed_count += 1
+            elif score >= 80:
+                low_count += 1
+            elif score >= 60:
+                medium_count += 1
+            else:
+                high_count += 1
     
     risk_stats = {
-        'high': critical_count,
-        'medium': major_count,
-        'low': low_count if low_count > 0 else 0
+        'high': high_count,
+        'medium': medium_count,
+        'low': low_count,
+        'passed': passed_count
     }
     
     return render_template('settings.html', config=config, rules=rules, risk_stats=risk_stats)
