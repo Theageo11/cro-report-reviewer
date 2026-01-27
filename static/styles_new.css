@@ -452,15 +452,8 @@ body {
 }
 
 .document-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
     cursor: pointer;
     transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
 }
 
 .document-card:hover {
@@ -1153,4 +1146,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-light);
 }
-
