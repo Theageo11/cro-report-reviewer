@@ -34,7 +34,7 @@ class Database:
         with open(self.db_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     
-    def create_document(self, filename: str, original_filename: str, file_path: str) -> str:
+    def create_document(self, filename: str, original_filename: str, file_path: str, uploader: str = "Admin") -> str:
         """创建新文档记录"""
         db = self._load_db()
         doc_id = str(uuid.uuid4())
@@ -44,6 +44,7 @@ class Database:
             "filename": filename,
             "original_filename": original_filename,
             "file_path": file_path,
+            "uploader": uploader,
             "status": "uploaded",  # uploaded, analyzing, analyzed
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -143,4 +144,3 @@ class Database:
             return f"发现 {minor} 个次要问题"
         else:
             return "未发现问题"
-
